@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gerador de Quizzes com IA - Crie quizzes estruturados usando OpenAI">
+    <title>Quiz Generator - Powered by OpenAI</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;700&family=Poppins:wght@400;700&family=Montserrat:wght@400;700&family=Playfair+Display:wght@700&family=Roboto:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; max-width: 800px; margin: 0 auto;">
+                <div style="flex: 1;">
+                    <h1>🎯 Quiz Generator</h1>
+                    <p>Crie quizzes estruturados e profissionais usando Inteligência Artificial</p>
+                </div>
+                <button id="shutdownBtn" class="btn btn-secondary"
+                    style="margin-right: var(--space-xs); border-color: var(--glass-border); color: var(--color-error);">
+                    🛑 Sair
+                </button>
+                <button id="settingsBtn" class="btn btn-secondary" style="flex-shrink: 0;">
+                    ⚙️ Configurações
+                </button>
+            </div>
+        </header>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2>⚙️ Configurações OpenAI</h2>
+                    <button id="closeSettings" class="btn-close">✕</button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="apiKey" class="form-label">
+                                Chave API OpenAI <span class="required">*</span>
+                            </label>
+                            <input type="password" id="apiKey" class="form-input" placeholder="sk-..."
+                                autocomplete="off">
+                            <small class="form-help">Sua chave será armazenada localmente no navegador</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="model" class="form-label">Modelo OpenAI (Texto)</label>
+                            <select id="model" class="form-select">
+                                <option value="gpt-5.2">GPT-5.2 (Ponta / Lógica avançada)</option>
+                                <option value="gpt-5-mini">GPT-5 Mini (Equilibrado)</option>
+                                <option value="gpt-5-nano">GPT-5 Nano (Ultra-rápido)</option>
+                                <option value="gpt-4.1">GPT-4.1 (Versátil / Explicativo)</option>
+                                <option value="gpt-4.1-mini">GPT-4.1 Mini (Econômico)</option>
+                                <option value="gpt-4.1-nano">GPT-4.1 Nano (Performance)</option>
+                                <option value="gpt-4o">GPT-4o (Mais usado)</option>
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            </select>
+                            <small class="form-help">Modelos mais avançados geram quizzes de maior qualidade</small>
+                        </div>
+                    </div>
+
+                    <div class="form-grid mt-md"
+                        style="border-top: 1px solid var(--glass-border); padding-top: var(--space-md);">
+                        <div class="form-group">
+                            <label for="imageProvider" class="form-label">Provedor de Imagem (IA)</label>
+                            <select id="imageProvider" class="form-select">
+                                <option value="openai">OpenAI DALL-E 3</option>
+                                <option value="google">Google Imagen (Whisk)</option>
+                            </select>
+                        </div>
+                        <div class="form-group hidden" id="googleKeyGroup">
+                            <label for="googleApiKey" class="form-label">Chave API Google Gemini (Imagen)</label>
+                            <input type="password" id="googleApiKey" class="form-input" placeholder="AIza..."
+                                autocomplete="off">
+                            <small class="form-help">Necessária para o Google Imagen</small>
+                        </div>
+                    </div>
+
+                    <div class="form-grid mt-md"
+                        style="border-top: 1px solid var(--glass-border); padding-top: var(--space-md);">
+                        <div class="form-group">
+                            <label for="googleSearchKey" class="form-label">Google Search API Key (Busca
+                                Imagens)</label>
+                            <input type="password" id="googleSearchKey" class="form-input" placeholder="AIza..."
+                                autocomplete="off">
+                            <small class="form-help">Para buscar imagens reais no Google</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="googleSearchCx" class="form-label">Google Search Engine ID (CX)</label>
+                            <input type="text" id="googleSearchCx" class="form-input" placeholder="012345..."
+                                autocomplete="off">
+                            <small class="form-help">ID do mecanismo de busca programável</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display: flex; gap: var(--space-sm); justify-content: flex-end;">
+                    <button id="openStyleModal" class="btn btn-secondary">
+                        🎨 Personalizar Estilo
+                    </button>
+                    <button id="openTimingModal" class="btn btn-secondary">
+                        ⏱️ Ajustar Tempos
+                    </button>
+                    <button id="saveApiKey" class="btn btn-primary">
+                        💾 Salvar Configuração
+                    </button>
+                    <button id="cancelSettings" class="btn btn-secondary">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Search Modal -->
+        <div id="imageSearchModal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content glass-card" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2>🔍 Busca de Imagens (CC)</h2>
+                    <button id="closeImageSearch" class="btn-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group mb-md">
+                        <div style="display: flex; gap: var(--space-sm);">
+                            <input type="text" id="imageSearchInput" class="form-input" placeholder="Buscar imagens...">
+                            <button id="executeImageSearch" class="btn btn-primary btn-sm">Buscar</button>
+                        </div>
+                        <small class="form-help">Resultados filtrados por licenciamento Creative Commons</small>
+                    </div>
+                    <div id="imageSearchResults" class="image-results-grid">
+                        <!-- Resultados virão aqui -->
+                        <div class="image-placeholder" style="grid-column: 1/-1; padding: var(--space-xl);">
+                            Digite um termo para buscar imagens reais no Google
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style Customization Modal -->
+        <div id="styleModal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content glass-card" style="max-width: 1100px; width: 95%;">
+                <div class="modal-header">
+                    <h2>🎨 Personalização Visual</h2>
+                    <button id="closeStyleModal" class="btn-close">✕</button>
+                </div>
+                <div class="modal-body"
+                    style="display: grid; grid-template-columns: 380px 1fr; gap: var(--space-xl); height: 75vh; padding: 0; overflow: hidden;">
+                    <!-- Controls (Scrollable) -->
+                    <div class="style-controls"
+                        style="display: flex; flex-direction: column; gap: var(--space-md); overflow-y: auto; padding: 25px; border-right: 1px solid var(--glass-border);">
+                        <!-- Color Palettes -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                🎨 Paletas Rápidas</h3>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('default')"
+                                    title="Padrão">
+                                    <div class="palette-colors">
+                                        <span style="background: #6366f1;"></span>
+                                        <span style="background: #a855f7;"></span>
+                                    </div>
+                                    <span class="palette-name">Padrão</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('ocean')"
+                                    title="Oceano">
+                                    <div class="palette-colors">
+                                        <span style="background: #14b8a6;"></span>
+                                        <span style="background: #06b6d4;"></span>
+                                    </div>
+                                    <span class="palette-name">Oceano</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('sunset')"
+                                    title="Pôr do Sol">
+                                    <div class="palette-colors">
+                                        <span style="background: #f97316;"></span>
+                                        <span style="background: #ec4899;"></span>
+                                    </div>
+                                    <span class="palette-name">Pôr do Sol</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('forest')"
+                                    title="Floresta">
+                                    <div class="palette-colors">
+                                        <span style="background: #22c55e;"></span>
+                                        <span style="background: #84cc16;"></span>
+                                    </div>
+                                    <span class="palette-name">Floresta</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('royal')"
+                                    title="Real">
+                                    <div class="palette-colors">
+                                        <span style="background: #9333ea;"></span>
+                                        <span style="background: #6366f1;"></span>
+                                    </div>
+                                    <span class="palette-name">Real</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('fire')"
+                                    title="Fogo">
+                                    <div class="palette-colors">
+                                        <span style="background: #ef4444;"></span>
+                                        <span style="background: #f97316;"></span>
+                                    </div>
+                                    <span class="palette-name">Fogo</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('night')"
+                                    title="Noite">
+                                    <div class="palette-colors">
+                                        <span style="background: #1e40af;"></span>
+                                        <span style="background: #7c3aed;"></span>
+                                    </div>
+                                    <span class="palette-name">Noite</span>
+                                </button>
+                                <button type="button" class="palette-btn" onclick="applyColorPalette('pastel')"
+                                    title="Pastel">
+                                    <div class="palette-colors">
+                                        <span style="background: #f9a8d4;"></span>
+                                        <span style="background: #93c5fd;"></span>
+                                    </div>
+                                    <span class="palette-name">Pastel</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Style Presets -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                💾 Meus Presets</h3>
+                            <div class="form-group mb-xs">
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="presetNameInput" class="form-input"
+                                        placeholder="Nome do preset..." style="font-size: 0.8rem; height: 32px;">
+                                    <button id="savePresetBtn" class="btn btn-primary btn-sm"
+                                        style="white-space: nowrap; height: 32px; padding: 0 12px;">Salvar</button>
+                                </div>
+                            </div>
+                            <div id="presetsList"
+                                style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); border: 1px solid var(--glass-border);">
+                                <!-- Presets will be loaded here -->
+                                <div
+                                    style="text-align: center; font-size: 0.75rem; color: var(--text-tertiary); padding: 5px;">
+                                    Nenhum preset salvo</div>
+                            </div>
+                        </div>
+                        <!-- Brand Colors -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                Cores Base (Marca)</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div class="form-group">
+                                    <label class="form-label">Primária</label>
+                                    <input type="color" id="cardColorPrimary" value="#6366f1" class="form-input-color">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Destaque</label>
+                                    <input type="color" id="cardColorAccent" value="#a855f7" class="form-input-color">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Question Number -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                📍 Número da Questão</h3>
+                            <div class="form-group mb-xs">
+                                <label class="form-label">Formato do Número</label>
+                                <select id="cardNumberFormat" class="form-select">
+                                    <option value="question">Questão {n}</option>
+                                    <option value="pergunta">Pergunta {n}</option>
+                                    <option value="none">{n} (Apenas número)</option>
+                                </select>
+                            </div>
+                            <div class="form-group mb-xs">
+                                <label class="form-label">Fonte</label>
+                                <select id="cardFontFamilyNumber" class="form-select font-selector-ajax"></select>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                                <div class="form-group">
+                                    <label class="form-label">Tamanho (<span
+                                            id="fontSizeNumberValue">100</span>%)</label>
+                                    <input type="range" id="cardFontSizeNumber" min="50" max="250" value="100"
+                                        class="form-range" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Curvatura Cantos (<span
+                                            id="radiusNumberValue">15</span>px)</label>
+                                    <input type="range" id="cardRadiusNumber" min="0" max="100" value="15"
+                                        class="form-range">
+                                </div>
+                            </div>
+                            <div class="form-group mt-xs">
+                                <label class="form-label">Cor do Texto</label>
+                                <input type="color" id="cardColorTextNumber" value="#ffffff" class="form-input-color">
+                            </div>
+                        </div>
+
+                        <!-- Question Statement -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                ❓ Enunciado</h3>
+                            <div class="form-group mb-xs">
+                                <label class="form-label">Fonte</label>
+                                <select id="cardFontFamilyQuestion" class="form-select font-selector-ajax"></select>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                                <div class="form-group">
+                                    <label class="form-label">Tamanho (<span
+                                            id="fontSizeQuestionValue">100</span>%)</label>
+                                    <input type="range" id="cardFontSizeQuestion" min="50" max="250" value="100"
+                                        class="form-range" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Cor do Texto</label>
+                                    <input type="color" id="cardColorTextQuestion" value="#ffffff"
+                                        class="form-input-color">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Alternatives -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                🔘 Alternativas</h3>
+                            <div class="form-group mb-xs">
+                                <label class="form-label">Fonte</label>
+                                <select id="cardFontFamilyAlternatives" class="form-select font-selector-ajax"></select>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                                <div class="form-group">
+                                    <label class="form-label">Tamanho (<span
+                                            id="fontSizeAlternativesValue">100</span>%)</label>
+                                    <input type="range" id="cardFontSizeAlternatives" min="50" max="250" value="100"
+                                        class="form-range" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Curvatura Cantos (<span
+                                            id="radiusAlternativesValue">20</span>px)</label>
+                                    <input type="range" id="cardRadiusAlternatives" min="0" max="100" value="20"
+                                        class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Largura do Box (<span
+                                            id="widthAlternativesValue">100</span>%)</label>
+                                    <input type="range" id="cardWidthAlternatives" min="40" max="100" value="100"
+                                        class="form-range">
+                                </div>
+                            </div>
+                            <div class="form-group mt-xs">
+                                <label class="form-label">Cor do Texto</label>
+                                <input type="color" id="cardColorTextAlternatives" value="#ffffff"
+                                    class="form-input-color">
+                            </div>
+                            <!-- Global Alternatives Box Controls -->
+                            <div
+                                style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); border: 1px solid var(--glass-border);">
+                                <p
+                                    style="font-size: 0.75rem; color: var(--color-primary-light); font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">
+                                    Ajuste Global dos Boxes</p>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Opacidade Fundo (<span
+                                                id="globalAltBgOpacityValue">0.05</span>)</label>
+                                        <input type="range" id="globalAltBgOpacity" min="0" max="1" step="0.05"
+                                            value="0.05" class="form-range">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Opacidade Borda (<span
+                                                id="globalAltBorderOpacityValue">0.1</span>)</label>
+                                        <input type="range" id="globalAltBorderOpacity" min="0" max="1" step="0.05"
+                                            value="0.1" class="form-range">
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Cor Fundo Box</label>
+                                        <input type="color" id="globalAltBgColor" value="#ffffff"
+                                            class="form-input-color">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Cor Borda Box</label>
+                                        <input type="color" id="globalAltBorderColor" value="#ffffff"
+                                            class="form-input-color">
+                                    </div>
+                                </div>
+                                <small style="display: block; margin-top: 5px; opacity: 0.6; font-size: 0.7rem;">*
+                                    Altera todos os cards que não possuam ajuste individual.</small>
+                            </div>
+                        </div>
+
+                        <!-- Justification -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                💡 Justificativa (Resposta)</h3>
+                            <div class="form-group mb-xs">
+                                <label class="form-label">Fonte</label>
+                                <select id="cardFontFamilyJustification"
+                                    class="form-select font-selector-ajax"></select>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                                <div class="form-group">
+                                    <label class="form-label">Tamanho (<span
+                                            id="fontSizeJustificationValue">100</span>%)</label>
+                                    <input type="range" id="cardFontSizeJustification" min="50" max="250" value="100"
+                                        class="form-range" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Curvatura Cantos (<span
+                                            id="radiusJustificationValue">20</span>px)</label>
+                                    <input type="range" id="cardRadiusJustification" min="0" max="100" value="20"
+                                        class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Largura do Box (<span
+                                            id="widthJustificationValue">100</span>%)</label>
+                                    <input type="range" id="cardWidthJustification" min="40" max="100" value="100"
+                                        class="form-range">
+                                </div>
+                            </div>
+                            <div class="form-group mt-xs">
+                                <label class="form-label">Cor do Texto</label>
+                                <input type="color" id="cardColorTextJustification" value="#ffffff"
+                                    class="form-input-color">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                                <div class="form-group">
+                                    <label class="form-label">Cor Fundo (Correta)</label>
+                                    <input type="color" id="cardColorCorrect" value="#22c55e" class="form-input-color">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Cor Borda (Correta)</label>
+                                    <input type="color" id="cardColorCorrectBorder" value="#22c55e"
+                                        class="form-input-color">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Fundo do Box</label>
+                                    <input type="color" id="cardColorJustificationBg" value="#166534"
+                                        class="form-input-color">
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label class="form-label">Cor da Borda Lateral (Box)</label>
+                                <input type="color" id="cardColorJustificationBorder" value="#22c55e"
+                                    class="form-input-color">
+                            </div>
+                        </div>
+
+                        <!-- Background -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                🖼️ Fundo / Background</h3>
+
+                            <!-- Fio Section -->
+                            <div
+                                style="margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); border: 1px solid var(--glass-border);">
+                                <div
+                                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                    <label class="form-label" style="margin-bottom: 0;">Inclusão de Fio (Inner
+                                        Border)</label>
+                                    <input type="checkbox" id="cardFioVisible" style="width: 18px; height: 18px;">
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Cor do Fio</label>
+                                        <input type="color" id="cardFioColor" value="#ffffff" class="form-input-color">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Curvatura (<span
+                                                id="radiusFioValue">10</span>px)</label>
+                                        <input type="range" id="cardRadiusFio" min="0" max="100" value="10"
+                                            class="form-range">
+                                    </div>
+                                </div>
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Distância Borda (<span
+                                                id="fioOffsetValue">10</span>px)</label>
+                                        <input type="range" id="cardFioOffset" min="5" max="150" value="10"
+                                            class="form-range">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Espessura (<span
+                                                id="fioThicknessValue">1</span>px)</label>
+                                        <input type="range" id="cardFioThickness" min="1" max="30" value="1"
+                                            class="form-range">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p
+                                style="font-size: 0.7rem; color: var(--color-primary-light); font-weight: 700; margin: 5px 0 10px 0; text-transform: uppercase;">
+                                Ajuste Global (Todos os Cards)</p>
+                            <div class="form-group mb-sm">
+                                <label class="form-label">Cor de Fundo</label>
+                                <input type="color" id="cardColorBg" value="#1e1e2e" class="form-input-color">
+                            </div>
+                            <div class="form-group mb-sm">
+                                <label class="form-label">URL Imagem de Fundo</label>
+                                <input type="text" id="cardBgImage" class="form-input"
+                                    placeholder="https://exemplo.com/imagem.jpg">
+                            </div>
+                            <div class="form-group mb-sm">
+                                <label class="form-label">Ou Upload do Dispositivo</label>
+                                <input type="file" id="cardBgUpload" class="form-input" accept="image/*">
+                            </div>
+                            <div class="form-group mb-sm">
+                                <label class="form-label">Opacidade da Imagem (<span
+                                        id="bgImageOpacityValue">1.0</span>)</label>
+                                <input type="range" id="cardBgImageOpacity" min="0" max="1" step="0.1" value="1.0"
+                                    class="form-range" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Opacidade do Overlay (<span
+                                        id="bgOpacityValue">0.5</span>)</label>
+                                <input type="range" id="cardBgOpacity" min="0" max="1" step="0.1" value="0.5"
+                                    class="form-range" style="width: 100%;">
+                            </div>
+                        </div>
+
+                        <!-- Vertical Positioning -->
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                ↕️ Posicionamento Vertical (Eixo Y)</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div class="form-group">
+                                    <label class="form-label">Box de Questão (<span
+                                            id="yOffsetNumberValue">-20</span>px)</label>
+                                    <input type="range" id="cardYOffsetNumber" min="-200" max="200" value="-20"
+                                        class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Enunciado (<span
+                                            id="yOffsetQuestionValue">-28</span>px)</label>
+                                    <input type="range" id="cardYOffsetQuestion" min="-200" max="200" value="-28"
+                                        class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Alternativas (<span
+                                            id="yOffsetAlternativesValue">-20</span>px)</label>
+                                    <input type="range" id="cardYOffsetAlternatives" min="-200" max="200" value="-20"
+                                        class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Alts (c/ Imagem) (<span
+                                            id="yOffsetAlternativesImageValue">-22</span>px)</label>
+                                    <input type="range" id="cardYOffsetAlternativesImage" min="-200" max="200"
+                                        value="-22" class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Justificativa (<span
+                                            id="yOffsetJustificationValue">0</span>px)</label>
+                                    <input type="range" id="cardYOffsetJustification" min="-200" max="200" value="0"
+                                        class="form-range">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Imagem à Direita (<span
+                                            id="yOffsetImageValue">-16</span>px)</label>
+                                    <input type="range" id="cardYOffsetImage" min="-200" max="200" value="-16"
+                                        class="form-range">
+                                </div>
+                            </div>
+                            <small style="display: block; margin-top: 5px; opacity: 0.6; font-size: 0.7rem;">* Valores
+                                negativos sobem, positivos descem.</small>
+                        </div>
+
+                        <div class="style-section">
+                            <h3 class="mb-sm"
+                                style="font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 5px;">
+                                ⚡ Configurações de Prévia</h3>
+                            <div class="form-group mb-sm">
+                                <label class="form-label">Layout da Prévia</label>
+                                <select id="cardPreviewLayout" class="form-select">
+                                    <option value="default">Layout Padrão</option>
+                                    <option value="image-right">Imagem à Direita</option>
+                                </select>
+                            </div>
+                            <div class="form-group mb-sm">
+                                <label class="form-label">Tipo de Tela</label>
+                                <select id="cardPreviewScreen" class="form-select">
+                                    <option value="question">Enunciado (Pergunta)</option>
+                                    <option value="answer">Resposta (Justificativa)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Quantidade de Alternativas</label>
+                                <select id="cardPreviewAlternatives" class="form-select">
+                                    <option value="2">2 alternativas</option>
+                                    <option value="3">3 alternativas</option>
+                                    <option value="4" selected>4 alternativas</option>
+                                    <option value="5">5 alternativas</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="btn-group mt-sm">
+                            <button id="resetStyles" class="btn btn-secondary btn-sm" style="width: 100%;">Restaurar
+                                Padrão</button>
+                        </div>
+                    </div>
+
+                    <!-- Preview (Fixed) -->
+                    <div class="style-preview-container"
+                        style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 25px; overflow: hidden;">
+                        <label class="form-label mb-sm" style="text-align: center; display: block; width: 100%;">Prévia
+                            (16:9)</label>
+                        <div id="cardPreviewWrapper" class="card-preview-wrapper"
+                            style="transform: scale(0.32); transform-origin: top center;">
+                            <!-- O preview será injetado aqui via JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveStyles" class="btn btn-primary">💾 Salvar Estilo</button>
+                    <button id="cancelStyles" class="btn btn-secondary">Fechar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Configuration Card -->
+        <section class="glass-card mb-lg">
+            <div class="card-header">
+                <h2>📝 Configuração do Quiz</h2>
+                <p>Defina os parâmetros para geração do seu quiz</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="language" class="form-label">
+                        Idioma <span class="required">*</span>
+                    </label>
+                    <select id="language" class="form-select">
+                        <option value="Português">Português</option>
+                        <option value="English">English</option>
+                        <option value="Español">Español</option>
+                        <option value="Français">Français</option>
+                        <option value="Deutsch">Deutsch</option>
+                        <option value="Italiano">Italiano</option>
+                        <option value="日本語">日本語</option>
+                        <option value="中文">中文</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="theme" class="form-label">
+                        Tema <span class="required">*</span>
+                    </label>
+                    <input type="text" id="theme" class="form-input"
+                        placeholder="Ex: História do Brasil, Matemática, Cinema...">
+                </div>
+
+                <div class="form-group">
+                    <label for="difficulty" class="form-label">
+                        Nível de Dificuldade <span class="required">*</span>
+                    </label>
+                    <select id="difficulty" class="form-select">
+                        <option value="Iniciante">Iniciante (Fato isolado / Óbvio)</option>
+                        <option value="Básico">Básico (Conhecimento comum / Memória simples)</option>
+                        <option value="Intermediário">Intermediário (Comparação / Pequenas inferências)</option>
+                        <option value="Avançado">Avançado (Contexto / Interpretação / Múltiplos conceitos)</option>
+                        <option value="Especialista">Especialista (Técnico / Termos específicos / Exceções)</option>
+                        <option value="Mestre">Mestre (Armadilhas / Conexões indiretas / Estratégico)</option>
+                        <option value="Extremo">Extremo / Desafio Supremo (Acadêmico / Paradoxos / Pegadinhas)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="format" class="form-label">
+                        Formato <span class="required">*</span>
+                    </label>
+                    <select id="format" class="form-select">
+                        <option value="Rápido">Quiz Rápido (10 questões)</option>
+                        <option value="Longo">Quiz Longo (20-100 questões)</option>
+                        <option value="Série">Série (Multi-parte)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="numQuestions" class="form-label">
+                        Número de Questões <span class="required">*</span>
+                    </label>
+                    <input type="number" id="numQuestions" class="form-input" min="5" max="100" value="10">
+                    <small class="form-help">Entre 5 e 100 questões</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="numAlternatives" class="form-label">
+                        Número de Alternativas <span class="required">*</span>
+                    </label>
+                    <select id="numAlternatives" class="form-select">
+                        <option value="2">2 alternativas</option>
+                        <option value="3">3 alternativas</option>
+                        <option value="4" selected>4 alternativas</option>
+                        <option value="5">5 alternativas</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Configurações de Narrativa -->
+            <div class="card-header mt-lg"
+                style="margin-bottom: var(--space-md); border-top: 1px solid var(--glass-border); padding-top: var(--space-lg);">
+                <h3>🎙️ Configurações de Narrativa</h3>
+                <p>Personalize como o roteiro do seu quiz será gerado</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="channelName" class="form-label">Nome do Canal</label>
+                    <input type="text" id="channelName" class="form-input" placeholder="Ex: Curiosidades Incríveis">
+                </div>
+
+                <div class="form-group">
+                    <label for="narratorTone" class="form-label">Tom do Narrador</label>
+                    <select id="narratorTone" class="form-select" onchange="toggleCustomTone(this.value)">
+                        <option value="Animado">Animado e Enérgico</option>
+                        <option value="Formal">Formal e Profissional</option>
+                        <option value="Suspense">Suspense e Misterioso</option>
+                        <option value="Educativo">Educativo e Calmo</option>
+                        <option value="Personalizado">Personalizado...</option>
+                    </select>
+                </div>
+
+                <div class="form-group hidden" id="customToneGroup">
+                    <label for="customTone" class="form-label">Descreva o Tom</label>
+                    <input type="text" id="customTone" class="form-input" placeholder="Ex: Homem idoso, sábio e lento">
+                </div>
+
+                <div class="form-group">
+                    <label for="narrativeQuestionFormat" class="form-label">Formato do Número (Narração)</label>
+                    <select id="narrativeQuestionFormat" class="form-select">
+                        <option value="flourished">Floreado (Variado)</option>
+                        <option value="full">Completo (Questão X)</option>
+                        <option value="number-only" selected>Apenas Número</option>
+                        <option value="none">Omitir</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="narrativeAlternativeFormat" class="form-label">Formato das Alternativas
+                        (Narração)</label>
+                    <select id="narrativeAlternativeFormat" class="form-select">
+                        <option value="full" selected>Letra e Conteúdo</option>
+                        <option value="letter-only">Apenas Letras</option>
+                        <option value="content-only">Apenas Conteúdo</option>
+                        <option value="omit">Omitir Tudo</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="narrativeAnswerFormat" class="form-label">Formato da Resposta (Narração)</label>
+                    <select id="narrativeAnswerFormat" class="form-select">
+                        <option value="full" selected>Completo (Letra + Conteúdo)</option>
+                        <option value="almost-full">Letra + Conteúdo (Simples)</option>
+                        <option value="keyword-only">Apenas Palavra "Resposta"</option>
+                        <option value="content-only">Apenas o Conteúdo</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="narrativeJustificationFormat" class="form-label">Justificativa (Card e Narração)</label>
+                    <select id="narrativeJustificationFormat" class="form-select">
+                        <option value="both" selected>Imprimir no card e ler na narração</option>
+                        <option value="print-only">Imprimir no card e NÃO ler</option>
+                        <option value="read-only">NÃO imprimir no card mas LER na narração</option>
+                        <option value="none-both">NÃO imprimir e NÃO ler</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group mt-md">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label for="details" class="form-label" style="margin-bottom: 0;">Detalhes sobre o Tema</label>
+                    <button id="openBrainstorm" class="btn btn-sm btn-secondary"
+                        style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid var(--glass-border); background: var(--glass-bg);">
+                        🧠 Brainstorm
+                    </button>
+                </div>
+                <textarea id="details" class="form-textarea"
+                    placeholder="Adicione informações específicas, contexto ou requisitos especiais para o quiz..."></textarea>
+                <small class="form-help">Opcional: Forneça mais contexto para personalizar o quiz</small>
+            </div>
+
+            <div class="btn-group mt-lg">
+                <button id="generateQuiz" class="btn btn-primary">
+                    ✨ Gerar Quiz
+                </button>
+                <button id="clearForm" class="btn btn-secondary">
+                    🔄 Limpar Formulário
+                </button>
+                <button id="importMetadataTop" class="btn btn-secondary">
+                    📥 Importar Backup
+                </button>
+            </div>
+        </section>
+
+        <!-- Status Messages -->
+        <div id="statusContainer"></div>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="hidden">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2>📊 Quiz Gerado</h2>
+                    <p id="quizSummary"></p>
+                </div>
+
+                <div class="btn-group mb-lg">
+                    <button id="exportCSV" class="btn btn-success">
+                        📥 Exportar CSV
+                    </button>
+                    <button id="exportJSON" class="btn btn-success">
+                        📥 Exportar JSON
+                    </button>
+                    <button id="exportSearchTerms" class="btn btn-secondary">
+                        🔍 Exportar Termos
+                    </button>
+                    <button id="copyToClipboard" class="btn btn-secondary">
+                        📋 Copiar para Área de Transferência
+                    </button>
+                </div>
+
+                <div class="btn-group mb-lg">
+                    <button id="exportAllQuestionImages" class="btn btn-primary">
+                        🖼️ Exportar Todas as Perguntas (ZIP)
+                    </button>
+                    <button id="exportAllAnswerImages" class="btn btn-primary">
+                        🖼️ Exportar Todas as Respostas (ZIP)
+                    </button>
+                    <button id="exportAllTogether" class="btn btn-primary"
+                        style="background: linear-gradient(135deg, var(--color-primary), var(--color-success));">
+                        🖼️ Exportar Tudo (ZIP)
+                    </button>
+                    <button id="generateNarrative" class="btn btn-secondary">
+                        🎙️ Gerar Narrativa (SRT)
+                    </button>
+                    <button id="exportCapCut" class="btn btn-primary" style="background: #000; border: 1px solid #333;">
+                        🎬 Exportar Projeto CapCut (BETA)
+                    </button>
+                    <button id="bulkImportImages" class="btn btn-secondary">
+                        📁 Importar Imagens em Lote
+                    </button>
+                    <input type="file" id="bulkImageInput" accept="image/*" multiple style="display: none;">
+                    <button id="exportMetadata" class="btn btn-secondary">
+                        💾 Exportar Backup
+                    </button>
+                    <button id="importMetadata" class="btn btn-secondary">
+                        📥 Importar Backup
+                    </button>
+                    <button id="importProjectHome" class="hidden"></button>
+                    <input type="file" id="metadataInput" accept=".json" style="display: none;">
+                    <button id="bulkImportBackgrounds" class="btn btn-secondary">
+                        🎨 Importar Backgrounds em Lote
+                    </button>
+                    <input type="file" id="bulkBackgroundInput" accept="image/*" multiple style="display: none;">
+                </div>
+
+                <div class="btn-group mb-lg">
+                    <button id="exportProductionPackage" class="btn btn-primary"
+                        style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); width: 100%; font-weight: bold; font-size: 1.1rem; padding: 1rem; border: 1px solid #ffb74d; box-shadow: 0 4px 15px rgba(245, 124, 0, 0.3);">
+                        📦 Baixar Pacote de Produção COMPLETO (Tudo em Um)
+                    </button>
+                </div>
+
+                <div class="card-header mt-lg"
+                    style="margin-bottom: var(--space-md); border-top: 1px solid var(--glass-border); padding-top: var(--space-lg);">
+                    <h3>📄 Exportar PDF</h3>
+                    <p>Gere documentos PDF com layouts específicos</p>
+                </div>
+
+                <div class="btn-group mb-lg">
+                    <button onclick="exportToPDF('questions-only')" class="btn btn-primary"
+                        style="background: #e11d48;">
+                        📕 PDF (Só Perguntas)
+                    </button>
+                    <button onclick="exportToPDF('answers-only')" class="btn btn-primary" style="background: #10b981;">
+                        📗 PDF (Só Respostas)
+                    </button>
+                    <button onclick="exportToPDF('sequential')" class="btn btn-primary" style="background: #6366f1;">
+                        📘 PDF (Sequencial)
+                    </button>
+                    <button onclick="exportToPDF('grouped')" class="btn btn-primary" style="background: #f59e0b;">
+                        📙 PDF (Agrupado)
+                    </button>
+                </div>
+
+                <!-- Global Layout Controls -->
+                <div class="global-layout-controls mb-lg glass-card"
+                    style="padding: var(--space-md); border: 1px solid var(--primary-main); background: rgba(255, 255, 255, 0.03);">
+                    <h3
+                        style="margin-bottom: var(--space-sm); font-size: 1.1rem; color: var(--primary-light); display: flex; align-items: center; gap: 8px;">
+                        <span>📐 Layout Global</span>
+                        <small style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Aplica a todas as questões
+                            geradas)</small>
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+                        <div class="btn-group" style="gap: 10px; display: flex;">
+                            <button id="globalLayoutDefault" onclick="applyGlobalLayout('default')"
+                                class="btn btn-secondary btn-sm layout-btn active" style="flex: 1;">Padrão</button>
+                            <button id="globalLayoutImageRight" onclick="applyGlobalLayout('image-right')"
+                                class="btn btn-secondary btn-sm layout-btn" style="flex: 1;">Imagem à Direita</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="questionsContainer"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Timing Customization Modal -->
+    <!-- Regenerate Modal -->
+    <div id="regenerateModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>⚡ Regenerar Questão com IA</h2>
+                <button id="closeRegenerateModal" class="btn-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; opacity: 0.8; font-size: 0.9rem;">Deseja mudar o foco desta questão?
+                    Digite abaixo um comando específico ou clique em Aleatório.</p>
+                <div class="form-group">
+                    <label for="regeneratePrompt" class="form-label">Comando Customizado (Opcional)</label>
+                    <textarea id="regeneratePrompt" class="form-textarea"
+                        placeholder="Ex: Faça uma questão sobre a capital da França... ou 'Mude o nível para difícil'"
+                        style="height: 100px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer"
+                style="display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: 20px;">
+                <button id="regenerateRandomBtn" class="btn btn-secondary">🎲 Aleatório</button>
+                <button id="regenerateCustomBtn" class="btn btn-primary">⚡ Regenerar Agora</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="timingModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>⏱️ Configurar Tempos (Segundos)</h2>
+                <button id="closeTimingModal" class="btn-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid" style="grid-template-columns: 1fr;">
+                    <div class="form-group">
+                        <label for="timeIntro" class="form-label">Introdução</label>
+                        <input type="number" id="timeIntro" class="form-input" min="1" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeStatement" class="form-label">Pergunta (Enunciado)</label>
+                        <input type="number" id="timeStatement" class="form-input" min="1" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeAlternatives" class="form-label">Leitura das Alternativas</label>
+                        <input type="number" id="timeAlternatives" class="form-input" min="1" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeTimer" class="form-label">Tempo do Contador (Timer)</label>
+                        <input type="number" id="timeTimer" class="form-input" min="1" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeAnswer" class="form-label">Resposta e Justificativa</label>
+                        <input type="number" id="timeAnswer" class="form-input" min="1" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeCTA" class="form-label">Chamada para Ação (CTA)</label>
+                        <input type="number" id="timeCTA" class="form-input" min="1" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeOutro" class="form-label">Encerramento (Outro)</label>
+                        <input type="number" id="timeOutro" class="form-input" min="1" step="0.5">
+                    </div>
+                </div>
+                <small class="form-help mt-sm">Esses tempos afetam apenas a exportação para o CapCut no momento.</small>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: var(--space-sm); justify-content: flex-end;">
+                <button id="resetTimingBtn" class="btn btn-secondary">Resetar Padrão</button>
+                <button id="saveTimingBtn" class="btn btn-primary">Salvar Tempos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brainstorm Modal -->
+    <div id="brainstormModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass-card"
+            style="max-width: 900px; width: 95%; height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div class="modal-header"
+                style="padding: 20px; flex-shrink: 0; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--glass-border);">
+                <div style="display: flex; flex-direction: column;">
+                    <h2 style="margin: 0; font-size: 1.4rem;">🧠 Chat de Estratégia</h2>
+                    <p style="margin: 0; font-size: 0.8rem; color: var(--text-tertiary);">Refine suas ideias e estruture
+                        seu quiz com IA</p>
+                </div>
+                <button id="closeBrainstorm" class="btn-close">✕</button>
+            </div>
+
+            <div id="brainstormChatHistory" class="chat-history"
+                style="flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 15px;">
+                <!-- Messages will appear here -->
+                <div class="chat-message system">
+                    <strong>👋 Olá! Sou seu estrategista de conteúdo.</strong><br>
+                    Posso ajudar você a transformar uma ideia vaga em um quiz estruturado. Vamos começar?<br><br>
+                    Me diga sobre o que você quer fazer seu quiz (ex: "História", "Ciência", "Filmes anos 80").
+                </div>
+            </div>
+
+            <div class="chat-input-area"
+                style="padding: 20px; border-top: 1px solid var(--glass-border); background: rgba(0, 0, 0, 0.4); flex-shrink: 0;">
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <textarea id="brainstormInput" class="form-textarea" rows="2"
+                        placeholder="Digite sua ideia ou responda às perguntas..."
+                        style="resize: none; min-height: 60px; font-size: 0.95rem;"></textarea>
+                    <button id="sendBrainstorm" class="btn btn-primary"
+                        style="height: 60px; width: 60px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+
+</html>
