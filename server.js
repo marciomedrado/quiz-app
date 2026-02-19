@@ -43,12 +43,10 @@ app.post('/api/image-search', async (req, res) => {
             num: 1
         };
 
-        const keyFingerprint = API_KEY ? `${API_KEY.substring(0, 8)}...${API_KEY.substring(API_KEY.length - 4)}` : 'NULL';
-
         console.log('--- DIAGNÓSTICO DE SEGURANÇA ---');
         console.log(`envLoaded: ${envLoaded}`);
-        console.log(`GOOGLE_API_KEY: ${keyFingerprint}`);
-        console.log(`GOOGLE_CX: ${CX}`);
+        console.log(`GOOGLE_API_KEY definida: ${!!process.env.GOOGLE_API_KEY}`);
+        console.log(`GOOGLE_CX definido: ${!!process.env.GOOGLE_CX}`);
         console.log('-------------------------------');
 
         const response = await axios.get('https://www.googleapis.com/customsearch/v1', {

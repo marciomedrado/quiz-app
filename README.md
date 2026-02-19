@@ -80,11 +80,11 @@ O projeto foi desenhado para ser leve, rápido e fácil de manter, sem a complex
     Crie um arquivo `.env` na raiz do projeto com suas credenciais:
     ```env
     # Obrigatório para geração de texto e imagens DALL-E
-    OPENAI_API_KEY=sk-sua-chave-aqui
+    OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 
     # Opcional: Para Google Imagen e Busca de Imagens
-    GOOGLE_API_KEY=ai-sua-chave-google-aqui
-    GOOGLE_CX=seu-search-engine-id
+    GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+    GOOGLE_CX=YOUR_GOOGLE_CX
 
     # Porta do servidor (Padrão: 3000)
     PORT=3000

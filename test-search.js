@@ -19,12 +19,9 @@ async function test() {
         num: 10
     };
 
-    const finalUrl = `https://www.googleapis.com/customsearch/v1?key=${API_KEY}&cx=${CX}&q=${encodeURIComponent(q)}&searchType=image&num=10`;
-
     console.log('--- DIAGNÓSTICO DE BUSCA ---');
-    console.log(`API Key (primeiros 6): ${API_KEY.substring(0, 6)}...`);
-    console.log(`CX: ${CX}`);
-    console.log(`URL Chamada: ${finalUrl}`);
+    console.log(`GOOGLE_API_KEY definido: ${!!API_KEY}`);
+    console.log(`GOOGLE_CX definido: ${!!CX}`);
     console.log('---------------------------');
 
     try {
