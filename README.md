@@ -98,7 +98,8 @@ O projeto foi desenhado para ser leve, rápido e fácil de manter, sem a complex
 *   **Validação:** Todas as entradas são validadas com `zod`.
 *   **Proteção de Headers:** Uso de `helmet` para segurança adicional.
 *   **Rate Limiting:** Limite de tentativas de login para evitar ataques de força bruta.
-*   **ORM:** [Prisma](https://www.prisma.io/) com SQLite (fácil portabilidade para Postgres).
+*   **Banco de Dados:** SQLite com **better-sqlite3** (driver de alta performance e seguro).
+*   **ORM:** [Prisma](https://www.prisma.io/) com Driver Adapter especializado.
 
 ---
 
