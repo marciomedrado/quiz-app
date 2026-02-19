@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { z } = require('zod');
+const z = require('zod');
 const prisma = require('../db/prisma');
 
 const authSchema = z.object({
@@ -15,30 +15,33 @@ router.post('/register', async (req, res) => {
     try {
         const { email, password } = authSchema.parse(req.body);
 
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) {
-            return res.status(400).json({ error: 'Este e-mail já está em uso.' });
-        }
-
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Se for o e-mail definido no .env como admin, cria como admin
-        const role = email === process.env.ADMIN_EMAIL ? 'admin' : 'user';
+        // Se for o e-mail definido no .env como admin, cria como ADMIN
+        // Caso contrário, USER. (Valores devem ser UPPERCASE para o enum Prisma)
+        const role = email === process.env.ADMIN_EMAIL ? 'ADMIN' : 'USER';
 
         const user = await prisma.user.create({
             data: {
                 email,
                 passwordHash,
                 role,
-                credits: 10 // Créditos iniciais para novos usuários
+                credits: 10
             }
         });
 
-        res.status(201).json({ message: 'Usuário criado com sucesso!' });
+        res.status(201).json({ ok: true });
     } catch (error) {
+        console.error("❌ REGISTER ERROR:", error.code, error.message, error);
+
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: error.errors[0].message });
         }
+
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'Este e-mail já está em uso.' });
+        }
+
         res.status(500).json({ error: 'Erro interno ao criar usuário.' });
     }
 });
@@ -62,7 +65,7 @@ router.post('/login', async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
         });
 

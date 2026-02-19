@@ -23,7 +23,7 @@ app.use(helmet({
 }));
 app.use(cookieParser());
 app.use(cors({
-    origin: true,
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
     credentials: true
 }));
 
@@ -116,7 +116,9 @@ app.post('/api/chat', requireAuth, async (req, res) => {
             return res.status(402).json({ error: 'Créditos insuficientes para esta operação.' });
         }
 
-        console.log(`🤖 [USER: ${req.user.email}] Chamada de Chat OpenAI (${model || 'gpt-4o'})...`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`🤖 [USER: ${req.user.email}] Chamada de Chat OpenAI (${model || 'gpt-4o'})...`);
+        }
 
         let finalTemperature = temperature || 0.7;
         if (model && (model.includes('gpt-5') || model.startsWith('o1'))) {

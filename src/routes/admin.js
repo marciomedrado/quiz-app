@@ -14,16 +14,12 @@ router.get('/users/search', requireAuth, requireAdmin, async (req, res) => {
         const users = await prisma.user.findMany({
             where: {
                 OR: [
-                    { email: { contains: q } },
+                    { email: { contains: q, mode: 'insensitive' } },
                     { id: { contains: q } }
                 ]
             },
-            select: {
-                id: true,
-                email: true,
-                role: true,
-                credits: true,
-                createdAt: true
+            include: {
+                subscription: true
             },
             take: 10
         });
@@ -87,6 +83,34 @@ router.post('/users/role', requireAuth, requireSuperAdmin, async (req, res) => {
         res.json({ id: updatedUser.id, email: updatedUser.email, role: updatedUser.role });
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+// Get recent purchases
+router.get('/audit/purchases', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const purchases = await prisma.purchase.findMany({
+            take: 50,
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { email: true } } }
+        });
+        res.json(purchases);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get user ledger
+router.get('/audit/ledger/:userId', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const ledger = await prisma.creditLedger.findMany({
+            where: { userId: req.params.userId },
+            orderBy: { createdAt: 'desc' },
+            take: 100
+        });
+        res.json(ledger);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

@@ -1,87 +1,113 @@
-# 🎯 Quiz Generator - AI Powered Suite (Premium v1.5)
+# 🎯 Quiz Generator - Production Suite (PostgreSQL & Stripe)
 
-> **A ferramenta definitiva para criadores de conteúdo educacional e de entretenimento com economia baseada em uso real.**
+> **Ambiente escalável com infraestrutura de produção robusta, economia dinâmica e faturamento recorrente.**
 
-O **Quiz Generator** é uma aplicação web de ponta que utiliza o poder da Inteligência Artificial (**OpenAI GPT-4o** e **Google Imagen**) para criar quizzes estruturados e prontos para produção. Esta versão introduz um sistema de **faturamento em tempo real** e **gestão administrativa avançada**.
-
----
-
-## 🚀 Novidades na Versão 1.5
-
-### 👑 Gestão Superadmin
-*   **Hierarquia de Papéis:** Diferenciação entre `USER`, `ADMIN` e `SUPERADMIN`.
-*   **Painel Administrativo (`/admin`):** Interface para busca de usuários, alteração de cargos e gestão manual de créditos (adicionar/remover).
-*   **Seed automático:** Criação automática do primeiro Superadmin via variáveis de ambiente.
-
-### 🪙 Economia Dinâmica & Billing
-*   **Cobrança Baseada em Uso:** O sistema calcula o custo exato em tokens e imagens (DALL-E 3 / Imagen) e cobra o usuário com base no custo real x10 (margem de lucro fixa).
-*   **Integração Stripe:** Compra de pacotes de créditos via **Stripe Checkout** com confirmação automática via **Webhooks**.
-*   **Transparência:** Página de preços (`/pricing`) detalhando exatamente como cada crédito é gasto e o valor de cada ação.
-*   **Log de Uso:** Todas as ações de IA são registradas no banco de dados para auditoria (modelo usado, tokens, custo USD).
+Esta versão marca a migração para **PostgreSQL** em produção e a implementação completa de um sistema de billing que suporta tanto **Créditos (Avulsos)** quanto **Assinaturas (Mensais)**.
 
 ---
 
-## ✨ Funcionalidades Core
+## 🚀 Arquitetura de Produção
 
-### 🧠 Inteligência & Criação
-*   **Geração via IA:** Controle de dificuldade, idioma (20+ suportados) e formato narrativo.
-*   **Brainstorm Chat:** Assistente para refinar ideias antes de gastar créditos.
-*   **Descoberta automática de Modelos:** O frontend detecta automaticamente novos modelos configurados no backend e atualiza a interface.
+### 🐘 Banco de Dados (Dual Mode)
+Para garantir velocidade em desenvolvimento e robustez em produção, o sistema utiliza:
+- **Dev:** PostegreSQL (Local) ou SQLite (Manual). O `schema.prisma` está configurado para `postgresql` por padrão.
+- **Produção:** PostgreSQL gerenciado (Railway, Supabase ou Neon).
 
-### 🎨 Design & Produção
-*   **Glassmorphism UI:** Design premium com transparências e animações dinâmicas.
-*   **Exportação CapCut Ready:** Gera o ZIP completo para importar no CapCut.
-*   **Alta Fidelidade:** Exportação de slides em PNG (1920x1080) e PDF estruturado.
+### 🚀 Diferenciais de Produção
+- **SSL Obrigatório:** Conexão segura com o banco de dados via `?sslmode=require`.
+- **Harden Cookies:** Cookies `Secure` e `SameSite: None` para compatibilidade com domínios cruzados.
+- **CORS Estrito:** Apenas origens autorizadas via `ALLOWED_ORIGINS`.
 
 ---
 
-## 🛠️ Instalação e Configuração
+## 💳 Sistema de Billing (Stripe)
 
-### Pré-requisitos
-*   [Node.js](https://nodejs.org/) (v18+).
-*   Conta no [Stripe](https://stripe.com) (para pagamentos).
-*   API Keys da OpenAI e Google Cloud.
+### 🪙 Créditos Avulsos
+*   Compra de pacotes de créditos únicos.
+*   Entrega automática via **Webhook**.
+*   Registro histórico no **Credit Ledger**.
 
-### Instalação
+### 📅 Assinaturas Mensais
+*   Planos **BASIC** e **PRO**.
+*   Recarga automática de créditos a cada renovação de ciclo (invoice.paid).
+*   Gestão de status (Ativa, Cancelada, Pendente).
 
-1.  **Instale as dependências:**
+### 🛡️ Segurança de Pagamento
+*   **Idempotência:** Garantia de que um pagamento nunca é processado duas vezes via `stripeEventId`.
+*   **Validação de Assinatura:** Webhooks protegidos por `STRIPE_WEBHOOK_SECRET`.
+*   **Ledger Inviolável:** Toda mudança de saldo gera uma entrada de auditoria.
+
+---
+
+## 🛠️ Guia de Deploy e Migração
+
+### 1. Preparação (Heroku/Railway/Supabase)
+1. Crie uma instância de PostgreSQL.
+2. Copie a `DATABASE_URL` (ex: `postgres://user:pass@host:5432/db?sslmode=require`).
+
+### 2. Configuração do Stripe
+1. Crie os **Produtos** no Stripe Dashboard (um para cada pacote de créditos e um para cada plano).
+2. Obtenha os **Price IDs** e configure no `.env`.
+3. Configure o **Webhook URL** apontando para `seuapp.com/api/billing/webhook`.
+4. Habilite os eventos: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`.
+
+### 3. Deploy
+```bash
+# Instalar dependências
+npm install
+
+# Rodar migrações em produção
+npm run migrate:deploy
+
+# Gerar o client
+npm run generate:prod
+
+# Iniciar server
+npm start
+```
+
+---
+
+## 📂 Estrutura de Variáveis (checklist)
+Verifique o arquivo `.env.production.example` para a lista completa de variáveis:
+- `APP_URL`: URL base do seu app (ex: `https://quiz.meuapp.com`).
+- `ALLOWED_ORIGINS`: Domínios permitidos (separados por vírgula).
+- `STRIPE_PRICE_ID_PLAN_...`: IDs de assinatura.
+- `STRIPE_PRICE_ID_PACK_...`: IDs de pacotes únicos.
+
+---
+
+## 🧠 Desenvolvimento Local (SQLite)
+
+Para rodar localmente de forma rápida com **SQLite**:
+
+1.  Configure `DATABASE_URL="file:./prisma/dev.db"` no seu `.env`.
+2.  Rode as migrações de desenvolvimento:
     ```bash
-    npm install
+    npm run migrate:dev
     ```
-
-2.  **Configure o Banco de Dados (SQLite):**
+3.  Gere o client para SQLite:
     ```bash
-    npx prisma generate
-    npx prisma migrate dev --name init
+    npm run generate:dev
     ```
-
-3.  **Variáveis de Ambiente (`.env`):**
-    Copie o `.env.example` para `.env` e preencha as informações cruciais:
-    - `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`: Seus dados de acesso mestre.
-    - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`: Para processar pagamentos.
-    - `OPENAI_API_KEY`: Para geração de quiz e imagens.
-
-4.  **Inicie o Servidor:**
+4.  Inicie o servidor:
     ```bash
     npm start
     ```
 
----
+## 🌍 Produção (PostgreSQL)
 
-## 🔒 Segurança & Boas Práticas
-*   **Cookies HttpOnly:** Sessões JWT seguras que não podem ser acessadas via script.
-*   **Rate Limiting:** Proteção contra ataques de força bruta no login.
-*   **Helmet & CORS:** Headers de segurança configurados para prevenir vulnerabilidades comuns.
-*   **Zod Schema Validation:** Todas as entradas da API são estritamente validadas.
+Para o ambiente de **Produção**:
 
----
-
-## 📁 Estrutura do Backend
-*   `src/routes/`: Endpoints de autenticação, admin, billing e IA.
-*   `src/services/`: Lógica de negócio (créditos, transações, logs).
-*   `src/config/`: Tabelas de preço, pacotes Stripe e configurações globais.
-*   `prisma/schema.prisma`: Definição de dados e relações.
+1.  Rode as migrações (Managed DB):
+    ```bash
+    npm run migrate:deploy
+    ```
+2.  Gere o client para PostgreSQL:
+    ```bash
+    npm run generate:prod
+    ```
 
 ---
 
-*Desenvolvido com ❤️ e rigor técnico por Antigravity.*
+*Desenvolvido com rigor técnico por Antigravity.*

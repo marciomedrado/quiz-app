@@ -1,9 +1,13 @@
 const prisma = require('../db/prisma');
 
-const spendCredits = async (userId, amount, reason) => {
+/**
+ * Deduz créditos do usuário e registra no ledger.
+ */
+const spendCredits = async (userId, amount, reason, refId = null) => {
     return await prisma.$transaction(async (tx) => {
         const user = await tx.user.findUnique({
-            where: { id: userId }
+            where: { id: userId },
+            select: { id: true, credits: true }
         });
 
         if (!user || user.credits < amount) {
@@ -12,14 +16,15 @@ const spendCredits = async (userId, amount, reason) => {
 
         const updatedUser = await tx.user.update({
             where: { id: userId },
-            data: { credits: user.credits - amount }
+            data: { credits: { decrement: amount } }
         });
 
-        await tx.creditTransaction.create({
+        await tx.creditLedger.create({
             data: {
                 userId,
-                delta: -amount,
-                reason
+                deltaCredits: -amount,
+                reason: reason || 'USAGE',
+                refId
             }
         });
 
@@ -27,11 +32,14 @@ const spendCredits = async (userId, amount, reason) => {
     });
 };
 
-const addCredits = async (identifier, amount, reason) => {
+/**
+ * Adiciona créditos ao usuário (Compra ou Admin) e registra no ledger.
+ */
+const addCredits = async (identifier, amount, reason, refId = null) => {
     const where = identifier.includes('@') ? { email: identifier } : { id: identifier };
 
     return await prisma.$transaction(async (tx) => {
-        const user = await tx.user.findUnique({ where });
+        const user = await tx.user.findUnique({ where, select: { id: true } });
 
         if (!user) {
             throw new Error('Usuário não encontrado.');
@@ -39,14 +47,15 @@ const addCredits = async (identifier, amount, reason) => {
 
         const updatedUser = await tx.user.update({
             where: { id: user.id },
-            data: { credits: user.credits + amount }
+            data: { credits: { increment: amount } }
         });
 
-        await tx.creditTransaction.create({
+        await tx.creditLedger.create({
             data: {
                 userId: user.id,
-                delta: amount,
-                reason
+                deltaCredits: amount,
+                reason: reason || 'PURCHASE',
+                refId
             }
         });
 
@@ -54,26 +63,32 @@ const addCredits = async (identifier, amount, reason) => {
     });
 };
 
-const subtractCredits = async (identifier, amount, reason) => {
+/**
+ * Subtrai créditos (Admin) e registra no ledger.
+ */
+const subtractCredits = async (identifier, amount, reason, refId = null) => {
     const where = identifier.includes('@') ? { email: identifier } : { id: identifier };
 
     return await prisma.$transaction(async (tx) => {
-        const user = await tx.user.findUnique({ where });
+        const user = await tx.user.findUnique({ where, select: { id: true, credits: true } });
 
         if (!user) {
             throw new Error('Usuário não encontrado.');
         }
 
+        const finalAmount = Math.min(user.credits, amount);
+
         const updatedUser = await tx.user.update({
             where: { id: user.id },
-            data: { credits: Math.max(0, user.credits - amount) }
+            data: { credits: { decrement: finalAmount } }
         });
 
-        await tx.creditTransaction.create({
+        await tx.creditLedger.create({
             data: {
                 userId: user.id,
-                delta: -amount,
-                reason
+                deltaCredits: -finalAmount,
+                reason: reason || 'ADMIN_ADJUSTMENT',
+                refId
             }
         });
 
@@ -81,6 +96,9 @@ const subtractCredits = async (identifier, amount, reason) => {
     });
 };
 
+/**
+ * Log de uso de tokens/imagens para auditoria.
+ */
 const logUsage = async (usageData) => {
     const {
         userId,
