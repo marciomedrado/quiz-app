@@ -45,8 +45,6 @@ app.post('/api/image-search', async (req, res) => {
 
         console.log('--- DIAGNÓSTICO DE SEGURANÇA ---');
         console.log(`envLoaded: ${envLoaded}`);
-        console.log(`GOOGLE_API_KEY definida: ${!!process.env.GOOGLE_API_KEY}`);
-        console.log(`GOOGLE_CX definido: ${!!process.env.GOOGLE_CX}`);
         console.log('-------------------------------');
 
         const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
@@ -237,8 +235,7 @@ app.listen(PORT, () => {
     console.log(`🚀 Quiz Generator Server is running!`);
     console.log(`🔗 Local interface: http://localhost:${PORT}`);
     console.log('================================================');
-    console.log('Certifique-se de que o arquivo .env contém:');
-    console.log('OPENAI_API_KEY, GOOGLE_API_KEY e GOOGLE_CX.');
+    console.log('Certifique-se de que o arquivo .env está configurado corretamente.');
     console.log('================================================');
 
     // Abre o navegador automaticamente

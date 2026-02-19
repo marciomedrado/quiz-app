@@ -20,8 +20,6 @@ async function test() {
     };
 
     console.log('--- DIAGNÓSTICO DE BUSCA ---');
-    console.log(`GOOGLE_API_KEY definido: ${!!API_KEY}`);
-    console.log(`GOOGLE_CX definido: ${!!CX}`);
     console.log('---------------------------');
 
     try {
