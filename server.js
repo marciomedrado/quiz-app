@@ -326,18 +326,12 @@ const seedSuperAdmin = async () => {
 };
 
 app.listen(PORT, async () => {
-    // 1. Verify DB Integrity
     try {
-        // Just try to count users to see if table exists
         await prisma.user.count();
-        console.log('✅ Database connected and User table validation passed.');
+        console.log('✅ Database connected and User table validated.');
     } catch (e) {
-        console.error('\n❌ CRITICAL ERROR: Database check failed.');
-        console.error('   Error Message:', e.message);
-        console.error('   Most likely cause: Migrations not applied.');
-        console.error('   Solution: Run "npx prisma migrate reset --force"\n');
-        // We do not exit here to allow debugging if needed, or we could exit. 
-        // Given the request "Só abortar se a query falhar OU se User não existir", let's exit.
+        console.error('\n❌ DATABASE ERROR: Could not connect to the database or User table missing.');
+        console.error('   Run: npx prisma migrate reset --force\n');
         process.exit(1);
     }
 
