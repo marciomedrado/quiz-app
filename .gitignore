@@ -25,3 +25,6 @@ env/
 Thumbs.db
 *.log
 .cache/
+dev.db
+*.db
+prisma/dev.db
