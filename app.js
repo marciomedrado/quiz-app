@@ -81,7 +81,8 @@ const state = {
     timing: (() => {
         const saved = JSON.parse(localStorage.getItem('quiz_timing'));
         return saved ? { ...DEFAULT_TIMING, ...saved } : { ...DEFAULT_TIMING };
-    })()
+    })(),
+    currentUser: null
 };
 
 
@@ -279,7 +280,14 @@ const elements = {
     closeRegenerateModalBtn: document.getElementById('closeRegenerateModal'),
     regeneratePromptInput: document.getElementById('regeneratePrompt'),
     regenerateCustomBtn: document.getElementById('regenerateCustomBtn'),
-    regenerateRandomBtn: document.getElementById('regenerateRandomBtn')
+    regenerateRandomBtn: document.getElementById('regenerateRandomBtn'),
+
+    // Auth & User
+    userInfo: document.getElementById('userInfo'),
+    userEmail: document.getElementById('userEmail'),
+    userCredits: document.getElementById('userCredits'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    adminBtn: document.getElementById('adminBtn')
 };
 
 // ===================================
@@ -374,7 +382,46 @@ function init() {
     initTimingListeners();
     injectGoogleFonts(); // Inject fonts for html2canvas
 
+    // Auth & User Initialization
+    checkAuth();
+    if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', handleLogout);
+
     console.log('Quiz Generator initialized');
+}
+
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/users/me');
+        if (response.ok) {
+            state.currentUser = await response.json();
+            updateUserInfo();
+        } else {
+            const path = window.location.pathname;
+            if (path !== '/login' && path !== '/register' && path !== '/login.html' && path !== '/register.html') {
+                window.location.href = '/login';
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao verificar autenticação:', error);
+    }
+}
+
+function updateUserInfo() {
+    if (state.currentUser && elements.userInfo) {
+        elements.userInfo.classList.remove('hidden');
+        elements.userEmail.textContent = state.currentUser.email;
+        elements.userCredits.textContent = state.currentUser.credits;
+        if (state.currentUser.role === 'admin') {
+            elements.adminBtn.classList.remove('hidden');
+        }
+    }
+}
+
+async function handleLogout() {
+    if (confirm('Deseja realmente sair?')) {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+    }
 }
 
 function initStyleEventListeners() {
@@ -996,6 +1043,7 @@ async function generateQuiz() {
         state.isGenerating = false;
         elements.generateQuizBtn.disabled = false;
         elements.generateQuizBtn.innerHTML = '✨ Gerar Quiz';
+        checkAuth(); // Refresh credits
     }
 }
 

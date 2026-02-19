@@ -55,48 +55,50 @@ O projeto foi desenhado para ser leve, rápido e fácil de manter, sem a complex
 
 ---
 
-## 🚀 Instalação e Uso
+## 🚀 Instalação e Uso (Nova Versão com Login & Créditos)
 
 ### Pré-requisitos
-*   [Node.js](https://nodejs.org/) (v14+ recomendado).
-*   Chaves de API:
-    *   **OpenAI API Key** (Essencial).
-    *   **Google Cloud API Key** & **Search Engine ID (CX)** (Opcional, para busca de imagens e Imagen).
+*   [Node.js](https://nodejs.org/) (v16+ recomendado).
+*   Chaves de API (OpenAI / Google).
 
 ### Passo a Passo
 
-1.  **Clone ou baixe o repositório:**
-    ```bash
-    git clone https://github.com/seu-usuario/quiz-generator.git
-    cd quiz-generator
-    ```
-
-2.  **Instale as dependências:**
+1.  **Instalação:**
     ```bash
     npm install
     ```
 
-3.  **Configure o ambiente:**
-    Crie um arquivo `.env` na raiz do projeto com suas credenciais:
-    ```env
-    # Obrigatório para geração de texto e imagens DALL-E
-    OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-
-    # Opcional: Para Google Imagen e Busca de Imagens
-    GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
-    GOOGLE_CX=YOUR_GOOGLE_CX
-
-    # Porta do servidor (Padrão: 3000)
-    PORT=3000
+2.  **Banco de Dados:**
+    Inicialize o Prisma e as tabelas do banco de dados (SQLite):
+    ```bash
+    npx prisma generate
+    npx prisma migrate dev --name init
     ```
+
+3.  **Configuração do `.env`:**
+    Crie o arquivo `.env` baseado no `.env.example` e preencha as chaves:
+    *   `JWT_SECRET`: Uma string aleatória para segurança.
+    *   `ADMIN_EMAIL` e `ADMIN_PASSWORD`: Use estes para criar seu primeiro acesso administrativo.
 
 4.  **Inicie a aplicação:**
     ```bash
     npm start
     ```
 
-5.  **Acesse:**
-    Abra seu navegador em [http://localhost:3000](http://localhost:3000).
+### 💎 Sistema de Créditos
+*   Cada novo usuário começa com **10 créditos**.
+*   Cada quiz gerado consome **1 crédito**.
+*   Administradores podem adicionar créditos via interface ou API.
+
+---
+
+## 🔒 Segurança & Arquitetura
+*   **Autenticação:** Sessões seguras via JWT armazenado em Cookies `httpOnly`.
+*   **Hash de Senha:** Proteção com `bcrypt`.
+*   **Validação:** Todas as entradas são validadas com `zod`.
+*   **Proteção de Headers:** Uso de `helmet` para segurança adicional.
+*   **Rate Limiting:** Limite de tentativas de login para evitar ataques de força bruta.
+*   **ORM:** [Prisma](https://www.prisma.io/) com SQLite (fácil portabilidade para Postgres).
 
 ---
 

@@ -89,6 +89,38 @@
 }
 
 /* ===================================
+   AUTHENTICATION & USER BAR
+   =================================== */
+.user-info-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-xs);
+    font-size: 0.9rem;
+}
+
+.credit-badge {
+    background: hsla(var(--primary-hue), var(--primary-sat), var(--primary-light), 0.15);
+    color: var(--color-primary-light);
+    padding: 0.2rem 1rem;
+    border-radius: 50px;
+    font-weight: 700;
+    border: 1px solid hsla(var(--primary-hue), var(--primary-sat), var(--primary-light), 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.auth-page {
+    background: radial-gradient(circle at top left, #1a1a2e 0%, #0f0f1b 100%);
+    min-height: 100vh;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ===================================
    GLOBAL RESET & BASE STYLES
    =================================== */
 * {

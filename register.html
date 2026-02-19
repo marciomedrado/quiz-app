@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Quiz Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="auth-page">
+    <div class="container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+        <div class="glass-card" style="width: 100%; max-width: 400px; padding: var(--space-xl);">
+            <div class="card-header" style="text-align: center; margin-bottom: var(--space-lg);">
+                <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">✨ Criar Conta</h1>
+                <p>Junte-se ao Quiz Generator e ganhe 10 créditos grátis!</p>
+            </div>
+
+            <form id="registerForm">
+                <div class="form-group mb-md">
+                    <label for="email" class="form-label">E-mail</label>
+                    <input type="email" id="email" class="form-input" placeholder="seu@email.com" required>
+                </div>
+                <div class="form-group mb-lg">
+                    <label for="password" class="form-label">Senha</label>
+                    <input type="password" id="password" class="form-input" placeholder="Mínimo 6 caracteres" required
+                        minlength="6">
+                </div>
+
+                <div id="errorMessage" class="error-text hidden"
+                    style="margin-bottom: var(--space-md); text-align: center;"></div>
+
+                <button type="submit" id="registerBtn" class="btn btn-primary"
+                    style="width: 100%; margin-bottom: var(--space-md);">
+                    Cadastrar
+                </button>
+
+                <p style="text-align: center; color: var(--text-secondary);">
+                    Já tem conta? <a href="/login" style="color: var(--color-primary-light); font-weight: 700;">Faça
+                        Login</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('errorMessage');
+            const btn = document.getElementById('registerBtn');
+
+            btn.disabled = true;
+            btn.textContent = 'Criando conta...';
+            errorEl.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Conta criada com sucesso! Faça login para continuar.');
+                    window.location.href = '/login';
+                } else {
+                    errorEl.textContent = data.error || 'Erro ao criar conta';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorEl.textContent = 'Erro de conexão com o servidor';
+                errorEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Cadastrar';
+            }
+        });
+    </script>
+</body>
+
+</html>

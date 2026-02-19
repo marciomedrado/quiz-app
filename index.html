@@ -34,15 +34,24 @@
                 style="display: flex; justify-content: space-between; align-items: center; max-width: 800px; margin: 0 auto;">
                 <div style="flex: 1;">
                     <h1>🎯 Quiz Generator</h1>
-                    <p>Crie quizzes estruturados e profissionais usando Inteligência Artificial</p>
+                    <div id="userInfo" class="user-info-bar hidden">
+                        <span id="userEmail" style="opacity: 0.8;"></span>
+                        <div class="credit-badge">
+                            <span id="userCredits">0</span> 🪙 créditos
+                        </div>
+                    </div>
                 </div>
-                <button id="shutdownBtn" class="btn btn-secondary"
-                    style="margin-right: var(--space-xs); border-color: var(--glass-border); color: var(--color-error);">
-                    🛑 Sair
-                </button>
-                <button id="settingsBtn" class="btn btn-secondary" style="flex-shrink: 0;">
-                    ⚙️ Configurações
-                </button>
+                <div style="display: flex; gap: var(--space-xs); align-items: center;">
+                    <button id="adminBtn" class="btn btn-secondary hidden" style="border-color: var(--color-accent);">
+                        👑 Admin
+                    </button>
+                    <button id="logoutBtn" class="btn btn-secondary">
+                        � Sair
+                    </button>
+                    <button id="settingsBtn" class="btn btn-secondary">
+                        ⚙️ Configurações
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -95,8 +104,8 @@
                         </div>
                         <div class="form-group hidden" id="googleKeyGroup">
                             <label for="googleApiKey" class="form-label">Chave API Google Gemini (Imagen)</label>
-                            <input type="password" id="googleApiKey" class="form-input" placeholder="YOUR_GOOGLE_API_KEY"
-                                autocomplete="off">
+                            <input type="password" id="googleApiKey" class="form-input"
+                                placeholder="YOUR_GOOGLE_API_KEY" autocomplete="off">
                             <small class="form-help">Necessária para o Google Imagen</small>
                         </div>
                     </div>
