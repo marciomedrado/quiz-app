@@ -1,127 +1,87 @@
-# 🎯 Quiz Generator - AI Powered Suite
+# 🎯 Quiz Generator - AI Powered Suite (Premium v1.5)
 
-> **A ferramenta definitiva para criadores de conteúdo educacional e de entretenimento.**
+> **A ferramenta definitiva para criadores de conteúdo educacional e de entretenimento com economia baseada em uso real.**
 
-O **Quiz Generator** é uma aplicação web de ponta, construída com **Node.js** e **Vanilla JavaScript**, que utiliza o poder da Inteligência Artificial (**OpenAI GPT-4o/o1** e **Google Imagen**) para criar quizzes estruturados, visualmente deslumbrantes e prontos para produção de vídeo.
-
-![Design Premium](https://img.shields.io/badge/Design-Glassmorphism-purple?style=for-the-badge)
-![AI Power](https://img.shields.io/badge/AI-OpenAI%20%2B%20Google-green?style=for-the-badge)
-![Video Ready](https://img.shields.io/badge/Export-CapCut%20Ready-blue?style=for-the-badge)
+O **Quiz Generator** é uma aplicação web de ponta que utiliza o poder da Inteligência Artificial (**OpenAI GPT-4o** e **Google Imagen**) para criar quizzes estruturados e prontos para produção. Esta versão introduz um sistema de **faturamento em tempo real** e **gestão administrativa avançada**.
 
 ---
 
-## ✨ Funcionalidades Premium
+## 🚀 Novidades na Versão 1.5
+
+### 👑 Gestão Superadmin
+*   **Hierarquia de Papéis:** Diferenciação entre `USER`, `ADMIN` e `SUPERADMIN`.
+*   **Painel Administrativo (`/admin`):** Interface para busca de usuários, alteração de cargos e gestão manual de créditos (adicionar/remover).
+*   **Seed automático:** Criação automática do primeiro Superadmin via variáveis de ambiente.
+
+### 🪙 Economia Dinâmica & Billing
+*   **Cobrança Baseada em Uso:** O sistema calcula o custo exato em tokens e imagens (DALL-E 3 / Imagen) e cobra o usuário com base no custo real x10 (margem de lucro fixa).
+*   **Integração Stripe:** Compra de pacotes de créditos via **Stripe Checkout** com confirmação automática via **Webhooks**.
+*   **Transparência:** Página de preços (`/pricing`) detalhando exatamente como cada crédito é gasto e o valor de cada ação.
+*   **Log de Uso:** Todas as ações de IA são registradas no banco de dados para auditoria (modelo usado, tokens, custo USD).
+
+---
+
+## ✨ Funcionalidades Core
 
 ### 🧠 Inteligência & Criação
-*   **Geração de Quizzes via IA:** Crie quizzes completos sobre qualquer tema, com controle de dificuldade (*Iniciante* ao *Extremo*), idioma e formato.
-*   **Brainstorm Chat 🤖:** Um assistente de estratégia integrado para ajudar você a refinar ideias vagas e transformá-las em roteiros estruturados antes da geração.
-*   **Regeneração Inteligente ⚡:** Não gostou de uma questão? Regenere apenas ela com um clique, mudando o foco ou contexto sem perder o resto do quiz.
-*   **Narrativa Automática 🎙️:** Gera scripts de locução otimizados para vídeos, com tons personalizáveis (Animado, Suspense, Educativo, etc.).
+*   **Geração via IA:** Controle de dificuldade, idioma (20+ suportados) e formato narrativo.
+*   **Brainstorm Chat:** Assistente para refinar ideias antes de gastar créditos.
+*   **Descoberta automática de Modelos:** O frontend detecta automaticamente novos modelos configurados no backend e atualiza a interface.
 
-### 🎨 Design & Personalização (Glassmorphism)
-*   **Editor Visual Completo:** Controle total sobre tipografia (Google Fonts), cores, bordas, sombras, opacidades e espaçamentos.
-*   **Layouts Flexíveis:** Alterne instantaneamente entre layout **Padrão** (Centralizado) e **Imagem à Direita** (Ideal para YouTube/TikTok).
-*   **Presets de Estilo:** Salve suas configurações visuais favoritas e aplique-as em novos projetos com um clique.
-*   **Importação de Backgrounds:** Upload em massa de imagens de fundo ou uso de cores sólidas/gradientes.
-
-### 🖼️ Multimídia & Imagens
-*   **Geração de Imagens IA:** Integração nativa com **DALL-E 3** e **Google Imagen 3**.
-*   **Busca de Imagens Reais:** Pesquise imagens CC (Creative Commons) diretamente do Google Images sem sair da interface.
-*   **Edição em Lote:** Importe pastas inteiras de imagens locais para preencher seu quiz rapidamente.
-
-### 🚀 Exportação & Produção
-*   **Integração CapCut (Beta) 🎬:** Exporta a estrutura completa do projeto (JSON + Assets) pronta para automação de edição de vídeo.
-*   **Controle de Timing ⏱️:** Ajuste a duração exata de cada cena (Intro, Pergunta, Timer, Resposta) para sincronia perfeita.
-*   **Pacote de Imagens (PNG):** Renderização de alta qualidade de todos os slides (Perguntas e Respostas) via `html2canvas`.
-*   **PDF Generator 📕:** Exporte roteiros em PDF com múltiplos layouts (Só Perguntas, Só Respostas, Sequencial, Agrupado).
-*   **Backup e Migração 💾:** Exporte e importe metadados completos do projeto (JSON) para nunca perder seu trabalho.
+### 🎨 Design & Produção
+*   **Glassmorphism UI:** Design premium com transparências e animações dinâmicas.
+*   **Exportação CapCut Ready:** Gera o ZIP completo para importar no CapCut.
+*   **Alta Fidelidade:** Exportação de slides em PNG (1920x1080) e PDF estruturado.
 
 ---
 
-## 🛠️ Tecnologias & Arquitetura
-
-O projeto foi desenhado para ser leve, rápido e fácil de manter, sem a complexidade de frameworks frontend pesados.
-
-*   **Backend:** [Node.js](https://nodejs.org/) com [Express](https://expressjs.com/) (Proxy para APIs e Servidor de Arquivos).
-*   **Frontend:** HTML5, CSS3 (Variáveis & Flexbox/Grid), Vanilla JS Modular.
-*   **APIs Integradas:**
-    *   **OpenAI API:** Chat Completion (GPT-4o, GPT-4 Turbo) e Image Generation (DALL-E 3).
-    *   **Google Cloud:** Generative Language (Imagen 3) e Custom Search API.
-*   **Bibliotecas (via CDN):**
-    *   `html2canvas`: Renderização de DOM para Imagem.
-    *   `jspdf`: Geração de documentos PDF.
-    *   `jszip`: Criação de arquivos ZIP para download.
-    *   `axios`: Requisições HTTP.
-
----
-
-## 🚀 Instalação e Uso (Nova Versão com Login & Créditos)
+## 🛠️ Instalação e Configuração
 
 ### Pré-requisitos
-*   [Node.js](https://nodejs.org/) (v16+ recomendado).
-*   Chaves de API (OpenAI / Google).
+*   [Node.js](https://nodejs.org/) (v18+).
+*   Conta no [Stripe](https://stripe.com) (para pagamentos).
+*   API Keys da OpenAI e Google Cloud.
 
-### Passo a Passo
+### Instalação
 
-1.  **Instalação:**
+1.  **Instale as dependências:**
     ```bash
     npm install
     ```
 
-2.  **Banco de Dados:**
-    Inicialize o Prisma e as tabelas do banco de dados (SQLite):
+2.  **Configure o Banco de Dados (SQLite):**
     ```bash
     npx prisma generate
     npx prisma migrate dev --name init
     ```
 
-3.  **Configuração do `.env`:**
-    Crie o arquivo `.env` baseado no `.env.example` e preencha as chaves:
-    *   `JWT_SECRET`: Uma string aleatória para segurança.
-    *   `ADMIN_EMAIL` e `ADMIN_PASSWORD`: Use estes para criar seu primeiro acesso administrativo.
+3.  **Variáveis de Ambiente (`.env`):**
+    Copie o `.env.example` para `.env` e preencha as informações cruciais:
+    - `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`: Seus dados de acesso mestre.
+    - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`: Para processar pagamentos.
+    - `OPENAI_API_KEY`: Para geração de quiz e imagens.
 
-4.  **Inicie a aplicação:**
+4.  **Inicie o Servidor:**
     ```bash
     npm start
     ```
 
-### 💎 Sistema de Créditos
-*   Cada novo usuário começa com **10 créditos**.
-*   Cada quiz gerado consome **1 crédito**.
-*   Administradores podem adicionar créditos via interface ou API.
+---
+
+## 🔒 Segurança & Boas Práticas
+*   **Cookies HttpOnly:** Sessões JWT seguras que não podem ser acessadas via script.
+*   **Rate Limiting:** Proteção contra ataques de força bruta no login.
+*   **Helmet & CORS:** Headers de segurança configurados para prevenir vulnerabilidades comuns.
+*   **Zod Schema Validation:** Todas as entradas da API são estritamente validadas.
 
 ---
 
-## 🔒 Segurança & Arquitetura
-*   **Autenticação:** Sessões seguras via JWT armazenado em Cookies `httpOnly`.
-*   **Hash de Senha:** Proteção com `bcrypt`.
-*   **Validação:** Todas as entradas são validadas com `zod`.
-*   **Proteção de Headers:** Uso de `helmet` para segurança adicional.
-*   **Rate Limiting:** Limite de tentativas de login para evitar ataques de força bruta.
-*   **Banco de Dados:** SQLite com **better-sqlite3** (driver de alta performance e seguro).
-*   **ORM:** [Prisma](https://www.prisma.io/) com Driver Adapter especializado.
+## 📁 Estrutura do Backend
+*   `src/routes/`: Endpoints de autenticação, admin, billing e IA.
+*   `src/services/`: Lógica de negócio (créditos, transações, logs).
+*   `src/config/`: Tabelas de preço, pacotes Stripe e configurações globais.
+*   `prisma/schema.prisma`: Definição de dados e relações.
 
 ---
 
-## 📂 Estrutura do Projeto
-
-```
-/
-├── app.js            # Lógica principal do Frontend (Estado, Eventos, UI)
-├── server.js         # Servidor Express e Proxies de API
-├── index.html        # Estrutura HTML e Modais
-├── styles.css        # Design System e Estilização Global
-├── package.json      # Dependências e Scripts
-├── .env              # Variáveis de Ambiente (Não comitar!)
-└── README.md         # Documentação
-```
-
----
-
-## 📄 Licença
-
-Este projeto é distribuído sob a licença **ISC**. Sinta-se livre para usar, modificar e distribuir.
-
----
-
-*Desenvolvido com ❤️ e ☕ por Antigravity.*
+*Desenvolvido com ❤️ e rigor técnico por Antigravity.*

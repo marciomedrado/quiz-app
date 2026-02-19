@@ -8,14 +8,21 @@ generator client {
   previewFeatures = ["driverAdapters"]
 }
 
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
-  role         String   @default("user")
+  role         Role     @default(USER)
   credits      Int      @default(0)
   createdAt    DateTime @default(now())
   transactions CreditTransaction[]
+  usageEvents  UsageEvent[]
 }
 
 model CreditTransaction {
@@ -25,4 +32,19 @@ model CreditTransaction {
   delta     Int
   reason    String
   createdAt DateTime @default(now())
+}
+
+model UsageEvent {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  model             String
+  inputTokens       Int      @default(0)
+  outputTokens      Int      @default(0)
+  imagesCount       Int      @default(0)
+  costUsd           Float
+  finalChargeUsd    Float
+  creditsCharged    Int
+  referenceAction   String?
+  createdAt         DateTime @default(now())
 }

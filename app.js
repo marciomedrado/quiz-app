@@ -295,6 +295,7 @@ const elements = {
 // ===================================
 function init() {
     // Load saved configuration
+    refreshModels();
     elements.modelSelect.value = state.model;
     elements.imageProviderSelect.value = state.imageProvider;
 
@@ -385,6 +386,7 @@ function init() {
     // Auth & User Initialization
     checkAuth();
     if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', handleLogout);
+    if (elements.adminBtn) elements.adminBtn.addEventListener('click', () => window.location.href = '/admin');
 
     console.log('Quiz Generator initialized');
 }
@@ -411,9 +413,33 @@ function updateUserInfo() {
         elements.userInfo.classList.remove('hidden');
         elements.userEmail.textContent = state.currentUser.email;
         elements.userCredits.textContent = state.currentUser.credits;
-        if (state.currentUser.role === 'admin') {
+
+        const role = state.currentUser.role.toUpperCase();
+        if (role === 'ADMIN' || role === 'SUPERADMIN') {
             elements.adminBtn.classList.remove('hidden');
+        } else {
+            elements.adminBtn.classList.add('hidden');
         }
+    }
+}
+
+async function refreshModels() {
+    try {
+        const res = await fetch('/api/models');
+        const models = await res.json();
+
+        if (elements.modelSelect) {
+            elements.modelSelect.innerHTML = '';
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.name;
+                elements.modelSelect.appendChild(opt);
+            });
+            elements.modelSelect.value = state.model;
+        }
+    } catch (e) {
+        console.warn('Falha ao carregar modelos dinâmicos:', e);
     }
 }
 

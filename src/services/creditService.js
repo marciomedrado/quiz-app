@@ -27,11 +27,11 @@ const spendCredits = async (userId, amount, reason) => {
     });
 };
 
-const addCredits = async (userEmail, amount, reason) => {
+const addCredits = async (identifier, amount, reason) => {
+    const where = identifier.includes('@') ? { email: identifier } : { id: identifier };
+
     return await prisma.$transaction(async (tx) => {
-        const user = await tx.user.findUnique({
-            where: { email: userEmail }
-        });
+        const user = await tx.user.findUnique({ where });
 
         if (!user) {
             throw new Error('Usuário não encontrado.');
@@ -54,4 +54,64 @@ const addCredits = async (userEmail, amount, reason) => {
     });
 };
 
-module.exports = { spendCredits, addCredits };
+const subtractCredits = async (identifier, amount, reason) => {
+    const where = identifier.includes('@') ? { email: identifier } : { id: identifier };
+
+    return await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({ where });
+
+        if (!user) {
+            throw new Error('Usuário não encontrado.');
+        }
+
+        const updatedUser = await tx.user.update({
+            where: { id: user.id },
+            data: { credits: Math.max(0, user.credits - amount) }
+        });
+
+        await tx.creditTransaction.create({
+            data: {
+                userId: user.id,
+                delta: -amount,
+                reason
+            }
+        });
+
+        return updatedUser;
+    });
+};
+
+const logUsage = async (usageData) => {
+    const {
+        userId,
+        model,
+        inputTokens,
+        outputTokens,
+        imagesCount,
+        costUsd,
+        finalChargeUsd,
+        creditsCharged,
+        referenceAction
+    } = usageData;
+
+    return await prisma.usageEvent.create({
+        data: {
+            userId,
+            model,
+            inputTokens,
+            outputTokens,
+            imagesCount,
+            costUsd,
+            finalChargeUsd,
+            creditsCharged,
+            referenceAction
+        }
+    });
+};
+
+module.exports = {
+    spendCredits,
+    addCredits,
+    subtractCredits,
+    logUsage
+};
