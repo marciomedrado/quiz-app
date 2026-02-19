@@ -1,22 +1,51 @@
 const express = require('express');
 const router = express.Router();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+let stripe;
+if (process.env.STRIPE_SECRET_KEY) {
+    stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} else {
+    console.warn("⚠️ STRIPE_SECRET_KEY not set. Billing disabled.");
+}
+
 const prisma = require('../db/prisma');
 const { requireAuth } = require('../middlewares/auth');
 const { addCredits } = require('../services/creditService');
-const packs = require('../config/packs');
+const { packs, getPackById } = require('../config/packs');
 const plans = require('../config/plans');
+
+/**
+ * GET /packs -- Dynamic discovery
+ */
+router.get('/packs', (req, res) => {
+    // Return only public data + availability
+    const securePacks = packs.map(p => ({
+        id: p.id,
+        name: p.name,
+        credits: p.credits, // Base
+        bonus: p.bonus, // Bonus
+        totalCredits: p.credits + (p.bonus || 0), // Helper for UI
+        priceDisplay: p.priceDisplay,
+        available: !!p.priceId
+    }));
+    res.json(securePacks);
+});
 
 /**
  * Checkout para Créditos (One-time)
  */
 router.post('/checkout/credits', express.json(), requireAuth, async (req, res) => {
+    if (!stripe) return res.status(503).json({ error: 'Sistema de pagamento indisponível (Stripe not configured).' });
+
     try {
         const { packId } = req.body;
-        const pack = packs.find(p => p.id === packId);
+        const pack = getPackById(packId);
 
         if (!pack) {
-            return res.status(400).json({ error: 'Pacote inválido.' });
+            return res.status(400).json({ error: 'Pacote inválido ou inexistente.' });
+        }
+        if (!pack.priceId) {
+            console.error(`Missing Price ID for pack ${pack.id}`);
+            return res.status(503).json({ error: 'Pacote indisponível temporariamente.' });
         }
 
         const session = await stripe.checkout.sessions.create({
@@ -38,7 +67,7 @@ router.post('/checkout/credits', express.json(), requireAuth, async (req, res) =
 
         res.json({ url: session.url });
     } catch (error) {
-        console.error('Stripe Checkout Error:', error);
+        console.error('Stripe Checkout Error:', error.message);
         res.status(500).json({ error: 'Erro ao criar sessão de pagamento.' });
     }
 });
@@ -47,12 +76,20 @@ router.post('/checkout/credits', express.json(), requireAuth, async (req, res) =
  * Checkout para Assinatura (Recurring)
  */
 router.post('/checkout/subscription', express.json(), requireAuth, async (req, res) => {
+    if (!stripe) return res.status(503).json({ error: 'Sistema de pagamento indisponível.' });
+
     try {
         const { planId } = req.body;
         const plan = plans[planId];
 
         if (!plan) {
             return res.status(400).json({ error: 'Plano inválido.' });
+        }
+
+        // Ensure plan priceId is available (usually in plans.js or env)
+        // If plans.js maps from env, it might be undefined there
+        if (!plan.priceId) {
+            return res.status(503).json({ error: 'Plano indisponível temporariamente.' });
         }
 
         const session = await stripe.checkout.sessions.create({
@@ -74,7 +111,7 @@ router.post('/checkout/subscription', express.json(), requireAuth, async (req, r
 
         res.json({ url: session.url });
     } catch (error) {
-        console.error('Stripe Subscription Error:', error);
+        console.error('Stripe Subscription Error:', error.message);
         res.status(500).json({ error: 'Erro ao criar sessão de assinatura.' });
     }
 });
@@ -83,13 +120,15 @@ router.post('/checkout/subscription', express.json(), requireAuth, async (req, r
  * Webhook Seguro
  */
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!stripe) return res.status(503).send("Stripe not configured");
+
     const sig = req.headers['stripe-signature'];
     let event;
 
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     } catch (err) {
-        console.error(`Webhook Error: ${err.message}`);
+        console.error(`Webhook Signature Error: ${err.message}`);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -105,11 +144,11 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 await handleSubscriptionDeleted(event.data.object);
                 break;
             default:
-                console.log(`Unhandled event type ${event.type}`);
+            // console.log(`Unhandled event type ${event.type}`);
         }
         res.json({ received: true });
     } catch (error) {
-        console.error('Error processing webhook event:', error);
+        console.error('Error processing webhook logic:', error);
         res.status(500).json({ error: 'Webhook processing failed' });
     }
 });
@@ -121,8 +160,16 @@ async function handleCheckoutCompleted(session) {
     if (session.metadata.type !== 'CREDIT_PACK') return;
 
     const { userId, packId } = session.metadata;
-    const pack = packs.find(p => p.id === packId);
-    if (!pack) return;
+
+    // Resolve pack using helper (handles legacy aliases if needed)
+    const pack = getPackById(packId);
+
+    // Fallback integrity: if pack definitions changed but we got paid, we should honor it if possible.
+    if (!pack) {
+        console.error(`CRITICAL: Paid packId '${packId}' not found in config. UserId: ${userId}. Session: ${session.id}`);
+        // TODO: Maybe credit a default amount or flag for manual review?
+        return;
+    }
 
     const totalCredits = pack.credits + (pack.bonus || 0);
 
@@ -144,8 +191,7 @@ async function handleCheckoutCompleted(session) {
             }
         });
 
-        // Adicionar créditos via service (dentro da tx é ideal mas o service usa sua própria tx, 
-        // então chamamos diretamente a lógica de update aqui para manter atomicidade real do webhook)
+        // Adicionar créditos no Ledger + User atomicamente
         await tx.user.update({
             where: { id: userId },
             data: { credits: { increment: totalCredits } }
@@ -161,7 +207,7 @@ async function handleCheckoutCompleted(session) {
         });
     });
 
-    console.log(`✅ Créditos adicionados via Webhook: ${totalCredits} para ${userId}`);
+    console.log(`✅ Créditos adicionados: ${totalCredits} para ${userId}`);
 }
 
 /**
@@ -173,7 +219,10 @@ async function handleInvoicePaid(invoice) {
     const planId = subscription.metadata.planId;
     const plan = plans[planId];
 
-    if (!plan) return;
+    if (!plan) {
+        console.error(`CRITICAL: Paid planId '${planId}' not found. UserId: ${userId}. Invoice: ${invoice.id}`);
+        return;
+    }
 
     await prisma.$transaction(async (tx) => {
         // Atualizar ou criar sub
@@ -215,8 +264,10 @@ async function handleInvoicePaid(invoice) {
  */
 async function handleSubscriptionDeleted(subscription) {
     const userId = subscription.metadata.userId;
-    await prisma.subscription.update({
-        where: { userId },
+    if (!userId) return;
+
+    await prisma.subscription.updateMany({
+        where: { userId, stripeSubscriptionId: subscription.id },
         data: { status: 'CANCELED' }
     });
 }

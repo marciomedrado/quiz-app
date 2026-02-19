@@ -129,14 +129,8 @@
             { id: 'PRO', name: 'Plano Profissional', credits: 2000, price: '$29.90', features: ['2000 Créditos/mês', 'Geração de Imagens', 'Suporte 24/7'] }
         ];
 
-        const packs = [
-            { id: 'pack_100', name: 'Pack Iniciante', credits: 100, price: '$5.90', bonus: 0 },
-            { id: 'pack_500', name: 'Pack Versátil', credits: 500, price: '$24.90', bonus: 50 },
-            { id: 'pack_2000', name: 'Pack Profissional', credits: 2000, price: '$89.90', bonus: 400 },
-            { id: 'pack_5000', name: 'Pack Mestre', credits: 5000, price: '$199.90', bonus: 1500 }
-        ];
-
-        function renderAll() {
+        async function loadPacksAndRender() {
+            // Render Plans (Static for now)
             const plansGrid = document.getElementById('plansGrid');
             plans.forEach(plan => {
                 const card = document.createElement('div');
@@ -153,19 +147,37 @@
                 plansGrid.appendChild(card);
             });
 
-            const packsGrid = document.getElementById('packsGrid');
-            packs.forEach(pack => {
-                const card = document.createElement('div');
-                card.className = `glass-card price-card ${pack.bonus > 0 ? 'popular' : ''}`;
-                card.innerHTML = `
-                    ${pack.bonus > 0 ? `<span class="bonus">+${pack.bonus} bônus</span>` : ''}
-                    <h3>${pack.name}</h3>
-                    <div class="amount">${pack.credits + pack.bonus} 🪙</div>
-                    <p style="margin-bottom: 20px; font-weight: bold; opacity: 0.9;">${pack.price}</p>
-                    <button onclick="buyPack('${pack.id}')" class="btn btn-secondary" style="width: 100%;">Comprar Agora</button>
-                `;
-                packsGrid.appendChild(card);
-            });
+            // Fetch and Render Packs
+            try {
+                const res = await fetch('/api/billing/packs');
+                const packs = await res.json();
+
+                const packsGrid = document.getElementById('packsGrid');
+                packsGrid.innerHTML = ''; // clear loading state if any
+
+                packs.forEach(pack => {
+                    const totalCredits = (pack.totalCredits !== undefined) ? pack.totalCredits : (pack.credits + pack.bonus);
+                    const isAvailable = pack.available;
+                    const btnClass = isAvailable ? 'btn-secondary' : 'btn-secondary disabled';
+                    const btnStyle = isAvailable ? 'width: 100%;' : 'width: 100%; opacity: 0.5; cursor: not-allowed;';
+                    const btnText = isAvailable ? 'Comprar Agora' : 'Indisponível';
+                    const onClick = isAvailable ? `onclick="buyPack('${pack.id}')"` : '';
+
+                    const card = document.createElement('div');
+                    card.className = `glass-card price-card ${pack.bonus > 0 ? 'popular' : ''}`;
+                    card.innerHTML = `
+                        ${pack.bonus > 0 ? `<span class="bonus">+${pack.bonus} bônus</span>` : ''}
+                        <h3>${pack.name}</h3>
+                        <div class="amount">${totalCredits} 🪙</div>
+                        <p style="margin-bottom: 20px; font-weight: bold; opacity: 0.9;">${pack.priceDisplay || '$$$'}</p>
+                        <button ${onClick} class="btn ${btnClass}" style="${btnStyle}">${btnText}</button>
+                    `;
+                    packsGrid.appendChild(card);
+                });
+            } catch (err) {
+                console.error("Failed to load packs:", err);
+                document.getElementById('packsGrid').innerHTML = '<p style="text-align:center; width:100%;">Erro ao carregar pacotes.</p>';
+            }
         }
 
         async function subscribe(planId) {
@@ -194,7 +206,7 @@
             } catch (e) { alert('Erro no checkout.'); }
         }
 
-        renderAll();
+        loadPacksAndRender();
     </script>
 </body>
 
