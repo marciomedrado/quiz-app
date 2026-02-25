@@ -24,6 +24,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- SheetJS for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PDF.js for reading PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Mammoth for reading DOCX files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 
 <body>
@@ -813,14 +817,24 @@
             <div class="form-group mt-md">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <label for="details" class="form-label" style="margin-bottom: 0;">Detalhes sobre o Tema</label>
-                    <button id="openBrainstorm" class="btn btn-sm btn-secondary"
-                        style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid var(--glass-border); background: var(--glass-bg);">
-                        🧠 Brainstorm
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="openBrainstorm" class="btn btn-sm btn-secondary"
+                            style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid var(--glass-border); background: var(--glass-bg);">
+                            🧠 Brainstorm
+                        </button>
+                        <label for="fileUpload" class="btn btn-sm btn-secondary"
+                            style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid var(--glass-border); background: var(--glass-bg); cursor: pointer; display: flex; align-items: center; gap: 4px; margin: 0;">
+                            📁 Upload PDF/Doc
+                        </label>
+                        <input type="file" id="fileUpload" multiple accept=".pdf,.docx,.txt,.md,.xlsx,.csv,.json"
+                            style="display: none;">
+                    </div>
                 </div>
                 <textarea id="details" class="form-textarea"
                     placeholder="Adicione informações específicas, contexto ou requisitos especiais para o quiz..."></textarea>
-                <small class="form-help">Opcional: Forneça mais contexto para personalizar o quiz</small>
+                <div id="fileList" class="file-list"></div>
+                <small class="form-help">Opcional: Forneça mais contexto ou faça upload de arquivos (.pdf, .docx, .txt,
+                    .md, .xlsx, .csv, .json) para personalizar o quiz</small>
             </div>
 
             <div class="btn-group mt-lg">
@@ -969,10 +983,73 @@
                         style="height: 100px;"></textarea>
                 </div>
             </div>
+        </div>
+        <div class="modal-footer"
+            style="display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: 20px;">
+            <button id="regenerateRandomBtn" class="btn btn-secondary">🎲 Aleatório</button>
+            <button id="regenerateCustomBtn" class="btn btn-primary">⚡ Regenerar Agora</button>
+        </div>
+    </div>
+    </div>
+
+    <!-- Regenerate Justification Modal -->
+    <div id="regenerateJustificationModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>⚡ Regenerar Justificativa com IA</h2>
+                <button id="closeRegenerateJustificationModal" class="btn-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; opacity: 0.8; font-size: 0.9rem;">Deseja fornecer instruções para a nova
+                    justificativa?
+                    Deixe em branco para explicarmos o motivo baseando-se na resposta correta.</p>
+                <div class="form-group">
+                    <label for="regenerateJustificationPrompt" class="form-label">Instrução Customizada
+                        (Opcional)</label>
+                    <textarea id="regenerateJustificationPrompt" class="form-textarea"
+                        placeholder="Ex: Explique focando em fatos históricos... ou use uma analogia bem simples."
+                        style="height: 100px;"></textarea>
+                </div>
+            </div>
             <div class="modal-footer"
                 style="display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: 20px;">
-                <button id="regenerateRandomBtn" class="btn btn-secondary">🎲 Aleatório</button>
-                <button id="regenerateCustomBtn" class="btn btn-primary">⚡ Regenerar Agora</button>
+                <button id="regenerateJustificationAutoBtn" class="btn btn-secondary">🎲 Automático</button>
+                <button id="regenerateJustificationCustomBtn" class="btn btn-primary">⚡ Regenerar Agora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reorder Modal -->
+    <div id="reorderModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass-card" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>↕️ Reordenar Questão</h2>
+                <button id="closeReorderModal" class="btn-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; opacity: 0.8; font-size: 0.9rem;">
+                    Mova esta questão para outra posição.
+                </p>
+                <div class="form-group">
+                    <label for="reorderTargetPosition" class="form-label">Posição Destino (Número)</label>
+                    <input type="number" id="reorderTargetPosition" class="form-input" min="1" step="1" value="1">
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+                    <input type="checkbox" id="reorderSwapOnly" style="width: auto;">
+                    <label for="reorderSwapOnly" class="form-label" style="margin-bottom: 0; cursor: pointer;">
+                        Apenas trocar de posição com a questão destino (Swap)
+                        <div style="font-size: 0.75rem; opacity: 0.7; font-weight: normal; margin-top: 2px;">
+                            Se desmarcado, as demais questões serão empurradas (Shift).
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer"
+                style="display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: 20px;">
+                <button id="reorderApplyBtn" class="btn btn-primary">✅ Aplicar Posição</button>
             </div>
         </div>
     </div>

@@ -46,12 +46,14 @@ const authRoutes = require('./src/routes/auth');
 const userRoutes = require('./src/routes/user');
 const creditRoutes = require('./src/routes/credits');
 const adminRoutes = require('./src/routes/admin');
+const presetRoutes = require('./src/routes/presets');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/credits', creditRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/billing', billingRoutes); // Checkout route
+app.use('/api/presets', presetRoutes);
 
 // Endpoint for Proxy Image Search
 app.post('/api/image-search', requireAuth, async (req, res) => {

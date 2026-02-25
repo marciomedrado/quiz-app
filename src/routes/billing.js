@@ -13,6 +13,9 @@ const { addCredits } = require('../services/creditService');
 const { packs, getPackById } = require('../config/packs');
 const plans = require('../config/plans');
 
+// Normalize APP_URL to ensure it has no trailing slash and includes protocol
+const APP_URL = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+
 /**
  * GET /packs -- Dynamic discovery
  */
@@ -55,8 +58,8 @@ router.post('/checkout/credits', express.json(), requireAuth, async (req, res) =
                 quantity: 1,
             }],
             mode: 'payment',
-            success_url: `${process.env.APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.APP_URL}/pricing?error=cancelado`,
+            success_url: `${APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${APP_URL}/pricing?error=cancelado`,
             customer_email: req.user.email,
             metadata: {
                 userId: req.user.id,
@@ -99,8 +102,8 @@ router.post('/checkout/subscription', express.json(), requireAuth, async (req, r
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${process.env.APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.APP_URL}/pricing?error=cancelado`,
+            success_url: `${APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${APP_URL}/pricing?error=cancelado`,
             customer_email: req.user.email,
             metadata: {
                 userId: req.user.id,
@@ -132,14 +135,55 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
+    const stripeEventId = event.id;
+
     try {
         switch (event.type) {
             case 'checkout.session.completed':
-                await handleCheckoutCompleted(event.data.object);
+                const session = event.data.object;
+                // Check idempotency for pack purchases (Event ID OR Session ID)
+                const duplicatePack = await prisma.purchase.findFirst({
+                    where: {
+                        OR: [
+                            { stripeEventId: stripeEventId },
+                            { stripeSessionId: session.id }
+                        ]
+                    }
+                }) || await prisma.creditLedger.findFirst({
+                    where: {
+                        OR: [
+                            { stripeEventId: stripeEventId },
+                            { refId: session.id }
+                        ]
+                    }
+                });
+
+                if (duplicatePack) {
+                    console.log(`Duplicate detected (Event: ${stripeEventId} or Session: ${session.id}), skipping.`);
+                    return res.json({ received: true, duplicate: true });
+                }
+
+                await handleCheckoutCompleted(session, stripeEventId);
                 break;
+
             case 'invoice.paid':
-                await handleInvoicePaid(event.data.object);
+                const invoice = event.data.object;
+                // Check idempotency for subscriptions (Event ID OR Invoice ID)
+                const duplicateInvoice = await prisma.creditLedger.findFirst({
+                    where: {
+                        OR: [
+                            { stripeEventId: stripeEventId },
+                            { refId: invoice.id }
+                        ]
+                    }
+                });
+                if (duplicateInvoice) {
+                    console.log(`Duplicate detected (Event: ${stripeEventId} or Invoice: ${invoice.id}), skipping.`);
+                    return res.json({ received: true, duplicate: true });
+                }
+                await handleInvoicePaid(invoice, stripeEventId);
                 break;
+
             case 'customer.subscription.deleted':
                 await handleSubscriptionDeleted(event.data.object);
                 break;
@@ -156,35 +200,53 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 /**
  * Lógica: Pagamento de Créditos concluído
  */
-async function handleCheckoutCompleted(session) {
+/**
+ * Lógica: Pagamento de Créditos concluído
+ */
+async function handleCheckoutCompleted(session, stripeEventId) {
     if (session.metadata.type !== 'CREDIT_PACK') return;
 
-    const { userId, packId } = session.metadata;
+    let userId = session.metadata.userId;
 
-    // Resolve pack using helper (handles legacy aliases if needed)
+    // Fallback: resolution by email if userId missing in metadata
+    if (!userId && session.customer_email) {
+        const user = await prisma.user.findUnique({ where: { email: session.customer_email } });
+        if (user) userId = user.id;
+    }
+
+    if (!userId) {
+        console.error(`CRITICAL: Could not resolve userId for session ${session.id}. Event: ${stripeEventId}`);
+        return;
+    }
+
+    const { packId } = session.metadata;
     const pack = getPackById(packId);
 
-    // Fallback integrity: if pack definitions changed but we got paid, we should honor it if possible.
     if (!pack) {
         console.error(`CRITICAL: Paid packId '${packId}' not found in config. UserId: ${userId}. Session: ${session.id}`);
-        // TODO: Maybe credit a default amount or flag for manual review?
         return;
     }
 
     const totalCredits = pack.credits + (pack.bonus || 0);
 
     await prisma.$transaction(async (tx) => {
-        // Idempotência check
-        const existingPurchase = await tx.purchase.findUnique({
-            where: { stripeEventId: session.id }
+        // Double check idempotency inside transaction
+        const existing = await tx.purchase.findFirst({
+            where: {
+                OR: [
+                    { stripeEventId: stripeEventId },
+                    { stripeSessionId: session.id }
+                ]
+            }
         });
-        if (existingPurchase) return;
+        if (existing) return;
 
         // Registrar compra
         await tx.purchase.create({
             data: {
                 userId,
-                stripeEventId: session.id,
+                stripeEventId: stripeEventId,
+                stripeSessionId: session.id, // cs_...
                 type: 'CREDIT_PACK',
                 amountUsd: session.amount_total / 100,
                 creditsAdded: totalCredits
@@ -202,29 +264,47 @@ async function handleCheckoutCompleted(session) {
                 userId,
                 deltaCredits: totalCredits,
                 reason: 'PURCHASE',
-                refId: session.id
+                refId: session.id, // Link to session
+                stripeEventId: stripeEventId
             }
         });
     });
 
-    console.log(`✅ Créditos adicionados: ${totalCredits} para ${userId}`);
+    console.log(`✅ Créditos adicionados via Webhook: ${totalCredits} para ${userId} (Event: ${stripeEventId})`);
 }
 
 /**
  * Lógica: Mensalidade paga (Recarga de créditos)
  */
-async function handleInvoicePaid(invoice) {
+async function handleInvoicePaid(invoice, stripeEventId) {
     const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
-    const userId = subscription.metadata.userId;
+    let userId = subscription.metadata.userId;
     const planId = subscription.metadata.planId;
     const plan = plans[planId];
 
-    if (!plan) {
-        console.error(`CRITICAL: Paid planId '${planId}' not found. UserId: ${userId}. Invoice: ${invoice.id}`);
+    // Fallback: resolution by email
+    if (!userId && invoice.customer_email) {
+        const user = await prisma.user.findUnique({ where: { email: invoice.customer_email } });
+        if (user) userId = user.id;
+    }
+
+    if (!plan || !userId) {
+        console.error(`CRITICAL: Missing plan or userId. PlanId: ${planId}, UserId: ${userId}. Invoice: ${invoice.id}`);
         return;
     }
 
     await prisma.$transaction(async (tx) => {
+        // Double check idempotency
+        const existing = await tx.creditLedger.findFirst({
+            where: {
+                OR: [
+                    { stripeEventId: stripeEventId },
+                    { refId: invoice.id }
+                ]
+            }
+        });
+        if (existing) return;
+
         // Atualizar ou criar sub
         await tx.subscription.upsert({
             where: { userId },
@@ -253,10 +333,13 @@ async function handleInvoicePaid(invoice) {
                 userId,
                 deltaCredits: plan.creditsPerMonth,
                 reason: 'SUBSCRIPTION_REPLENISH',
-                refId: invoice.id
+                refId: invoice.id,
+                stripeEventId: stripeEventId
             }
         });
     });
+
+    console.log(`✅ Mensalidade processada via Webhook para ${userId} (Plan: ${planId}, Event: ${stripeEventId})`);
 }
 
 /**

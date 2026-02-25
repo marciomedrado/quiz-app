@@ -52,6 +52,26 @@
         .badge-user {
             background: #10b981;
         }
+
+        .filter-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-item label {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -80,20 +100,48 @@
         </div>
 
         <section class="glass-card">
-            <div class="search-bar">
-                <input type="text" id="userSearch" class="form-input" placeholder="Buscar por email ou ID...">
-                <button onclick="searchUsers()" class="btn btn-primary">Buscar</button>
+            <div class="filter-group">
+                <div class="filter-item" style="flex: 1; min-width: 200px;">
+                    <label>Busca Específica</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="userSearch" class="form-input" placeholder="Email ou ID...">
+                        <button onclick="searchUsers()" class="btn btn-primary">🔍</button>
+                    </div>
+                </div>
+
+                <div class="filter-item">
+                    <label>Cargo</label>
+                    <select id="filterRole" class="form-select" onchange="listAllUsers()">
+                        <option value="">Todos</option>
+                        <option value="USER">USER</option>
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="SUPERADMIN">SUPERADMIN</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <label>Assinatura</label>
+                    <select id="filterSub" class="form-select" onchange="listAllUsers()">
+                        <option value="">Todos</option>
+                        <option value="true">Com Plano</option>
+                        <option value="false">Sem Plano</option>
+                    </select>
+                </div>
+
+                <div class="filter-item" style="align-self: flex-end;">
+                    <button onclick="listAllUsers()" class="btn btn-secondary">📋 Listar Todos</button>
+                </div>
             </div>
 
             <div id="userList">
-                <p style="text-align: center; opacity: 0.6;">Digite um termo para buscar usuários.</p>
+                <p style="text-align: center; opacity: 0.6;">Utilize a busca ou o botão de listagem.</p>
             </div>
         </section>
     </div>
 
     <!-- Modal para editar créditos -->
     <div id="creditModal" class="modal hidden">
-        <div class="modal-overlay"></div>
+        <div class="modal-overlay" onclick="closeModal()"></div>
         <div class="modal-content glass-card">
             <h2 id="modalTitle">Adicionar Créditos</h2>
             <div class="form-group">
@@ -114,14 +162,89 @@
     <script>
         let currentUserId = null;
         let actionMode = 'add'; // 'add' or 'subtract'
+        let lastAction = 'list'; // 'search' or 'list'
+
+        // Handle Enter key in search
+        document.getElementById('userSearch').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchUsers();
+        });
 
         async function searchUsers() {
             const q = document.getElementById('userSearch').value;
             if (!q) return;
 
-            const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(q)}`);
-            const users = await res.json();
+            lastAction = 'search';
+            showLoading();
+            try {
+                const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(q)}`);
 
+                let data;
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await res.json();
+                } else {
+                    const text = await res.text();
+                    throw new Error(text.substring(0, 200) || 'Erro no servidor (não JSON)');
+                }
+
+                if (!res.ok) throw new Error(data.error || 'Erro na busca');
+                renderUsers(data);
+            } catch (e) {
+                console.error(e);
+                alert('Erro na busca:\n' + e.message);
+                document.getElementById('userList').innerHTML = `<p style="text-align: center; color: #ef4444; padding: 20px;">${e.message}</p>`;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function listAllUsers() {
+            const role = document.getElementById('filterRole').value;
+            const hasSub = document.getElementById('filterSub').value;
+
+            lastAction = 'list';
+            showLoading();
+            try {
+                let url = '/api/admin/users?';
+                if (role) url += `role=${role}&`;
+                if (hasSub) url += `hasSubscription=${hasSub}`;
+
+                const res = await fetch(url);
+
+                let data;
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await res.json();
+                } else {
+                    const text = await res.text();
+                    throw new Error(text.substring(0, 200) || 'Erro no servidor (não JSON)');
+                }
+
+                if (!res.ok) throw new Error(data.error || 'Erro ao carregar lista');
+                renderUsers(data);
+            } catch (e) {
+                console.error(e);
+                alert('Erro ao carregar lista:\n' + e.message);
+                document.getElementById('userList').innerHTML = `<p style="text-align: center; color: #ef4444; padding: 20px;">${e.message}</p>`;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('userList').innerHTML = '<p style="text-align: center; padding: 20px;"><span class="pulse">Carregando...</span></p>';
+        }
+
+        function hideLoading() {
+            // Logic handled by renderUsers clearing the list
+        }
+
+        function refreshList() {
+            if (lastAction === 'search') searchUsers();
+            else listAllUsers();
+        }
+
+        function renderUsers(users) {
             const list = document.getElementById('userList');
             list.innerHTML = '';
 
@@ -138,14 +261,17 @@
                 const div = document.createElement('div');
                 div.className = 'user-card';
                 div.innerHTML = `
-                    <div>
-                        <strong>${user.email}</strong> 
-                        <span class="badge badge-${user.role.toLowerCase()}">${user.role}</span>
-                        <span class="badge" style="background: ${subColor}">${subText}</span><br>
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <strong>${user.email}</strong> 
+                            <span class="badge badge-${user.role.toLowerCase()}">${user.role}</span>
+                            <span class="badge" style="background: ${subColor}">${subText}</span>
+                        </div>
                         <small style="opacity: 0.6;">ID: ${user.id} | Saldo: ${user.credits} 🪙</small>
                     </div>
                     <div class="controls">
-                        <button onclick="viewLedger('${user.id}')" class="btn btn-secondary btn-sm" title="Ver Histórico">📜</button>
+                        <button onclick="selectUser('${user.id}', '${user.email}')" class="btn btn-primary btn-sm" title="Selecionar">✓</button>
+                        <button onclick="viewLedger('${user.id}')" class="btn btn-secondary btn-sm" title="Histórico">📜</button>
                         <button onclick="openCreditModal('${user.id}', 'add')" class="btn btn-primary btn-sm">➕</button>
                         <button onclick="openCreditModal('${user.id}', 'subtract')" class="btn btn-secondary btn-sm">➖</button>
                         <select onchange="changeRole('${user.id}', this.value)" class="form-select btn-sm" style="width: auto;">
@@ -157,6 +283,18 @@
                 `;
                 list.appendChild(div);
             });
+        }
+
+        function selectUser(id, email) {
+            document.getElementById('userSearch').value = id;
+            navigator.clipboard.writeText(id);
+            const list = document.getElementById('userList');
+            // Visual feedback
+            const searchInput = document.getElementById('userSearch');
+            searchInput.focus();
+            searchInput.style.border = '2px solid #a855f7';
+            setTimeout(() => searchInput.style.border = '', 1000);
+            alert(`ID de ${email} copiado para a busca!`);
         }
 
         function openCreditModal(userId, mode) {
@@ -188,7 +326,7 @@
                 if (res.ok) {
                     alert('Operação realizada com sucesso!');
                     closeModal();
-                    searchUsers();
+                    refreshList();
                 } else {
                     const err = await res.json();
                     alert('Erro: ' + err.error);
@@ -260,11 +398,11 @@
 
                 if (res.ok) {
                     alert('Cargo alterado com sucesso!');
-                    searchUsers();
+                    refreshList();
                 } else {
                     const err = await res.json();
                     alert('Erro: ' + (err.error || 'Apenas SUPERADMIN pode alterar cargos.'));
-                    searchUsers();
+                    refreshList();
                 }
             } catch (e) {
                 alert('Erro na requisição.');

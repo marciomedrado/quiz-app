@@ -35,6 +35,16 @@ model User {
   stripeCustomer   StripeCustomer?
   purchases        Purchase[]
   subscription     Subscription?
+  stylePresets     StylePreset[]
+}
+
+model StylePreset {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  style     String   // JSON string
+  createdAt DateTime @default(now())
 }
 
 model StripeCustomer {
@@ -49,7 +59,8 @@ model Purchase {
   id             String   @id @default(uuid())
   userId         String
   user           User     @relation(fields: [userId], references: [id])
-  stripeEventId  String   @unique
+  stripeEventId  String?  @unique // Idempotency: actual Stripe Event ID
+  stripeSessionId String? @unique // Checkout Session ID (cs_...)
   type           String   // 'CREDIT_PACK' or 'SUBSCRIPTION_REPLENISH'
   amountUsd      Float
   creditsAdded   Int
@@ -74,7 +85,8 @@ model CreditLedger {
   user         User     @relation(fields: [userId], references: [id])
   deltaCredits Int      // Positive for added, negative for spent
   reason       String   // e.g., 'PURCHASE', 'USAGE', 'ADMIN_ADJUSTMENT'
-  refId        String?  // Reference to Purchase ID or UsageEvent ID
+  refId        String?  // Reference to Purchase ID, UsageEvent ID or Session ID
+  stripeEventId String? @unique // Idempotency: actual Stripe Event ID
   createdAt    DateTime @default(now())
 }
 

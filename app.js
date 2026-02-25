@@ -82,7 +82,8 @@ const state = {
         const saved = JSON.parse(localStorage.getItem('quiz_timing'));
         return saved ? { ...DEFAULT_TIMING, ...saved } : { ...DEFAULT_TIMING };
     })(),
-    currentUser: null
+    currentUser: null,
+    uploadedFiles: []
 };
 
 
@@ -282,12 +283,30 @@ const elements = {
     regenerateCustomBtn: document.getElementById('regenerateCustomBtn'),
     regenerateRandomBtn: document.getElementById('regenerateRandomBtn'),
 
+    // Regenerate Justification Elements
+    regenerateJustificationModal: document.getElementById('regenerateJustificationModal'),
+    closeRegenerateJustificationModalBtn: document.getElementById('closeRegenerateJustificationModal'),
+    regenerateJustificationPromptInput: document.getElementById('regenerateJustificationPrompt'),
+    regenerateJustificationCustomBtn: document.getElementById('regenerateJustificationCustomBtn'),
+    regenerateJustificationAutoBtn: document.getElementById('regenerateJustificationAutoBtn'),
+
+    // Reorder Elements
+    reorderModal: document.getElementById('reorderModal'),
+    closeReorderModalBtn: document.getElementById('closeReorderModal'),
+    reorderTargetPositionInput: document.getElementById('reorderTargetPosition'),
+    reorderSwapOnlyCheckbox: document.getElementById('reorderSwapOnly'),
+    reorderApplyBtn: document.getElementById('reorderApplyBtn'),
+
     // Auth & User
     userInfo: document.getElementById('userInfo'),
     userEmail: document.getElementById('userEmail'),
     userCredits: document.getElementById('userCredits'),
     logoutBtn: document.getElementById('logoutBtn'),
-    adminBtn: document.getElementById('adminBtn')
+    adminBtn: document.getElementById('adminBtn'),
+
+    // File Upload
+    fileUploadInput: document.getElementById('fileUpload'),
+    fileListContainer: document.getElementById('fileList')
 };
 
 // ===================================
@@ -381,12 +400,21 @@ function init() {
     initBrainstormListeners();
     initRegenerateListeners();
     initTimingListeners();
+    initReorderListeners();
     injectGoogleFonts(); // Inject fonts for html2canvas
 
     // Auth & User Initialization
     checkAuth();
     if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', handleLogout);
     if (elements.adminBtn) elements.adminBtn.addEventListener('click', () => window.location.href = '/admin');
+
+    // File Upload listener
+    if (elements.fileUploadInput) elements.fileUploadInput.addEventListener('change', handleFileUpload);
+
+    // Initialize PDF.js
+    if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
     console.log('Quiz Generator initialized');
 }
@@ -449,6 +477,130 @@ async function handleLogout() {
         window.location.href = '/login';
     }
 }
+
+// ===================================
+// FILE UPLOAD & PARSING
+// ===================================
+async function handleFileUpload(event) {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    showStatus(`📄 Processando ${files.length} arquivo(s)...`, 'info');
+
+    for (const file of files) {
+        try {
+            const content = await parseFile(file);
+            state.uploadedFiles.push({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                content: content
+            });
+        } catch (error) {
+            console.error(`Erro ao processar ${file.name}:`, error);
+            showStatus(`❌ Erro ao ler ${file.name}: ${error.message}`, 'error');
+        }
+    }
+
+    renderFileList();
+    elements.fileUploadInput.value = ''; // Reset input
+    showStatus('✅ Arquivos processados com sucesso!', 'success');
+}
+
+async function parseFile(file) {
+    const extension = file.name.split('.').pop().toLowerCase();
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        if (['txt', 'md', 'json', 'csv'].includes(extension)) {
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsText(file);
+        } else if (extension === 'xlsx' || extension === 'xls') {
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    let fullText = '';
+                    workbook.SheetNames.forEach(sheetName => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        fullText += `--- Sheet: ${sheetName} ---\n`;
+                        fullText += XLSX.utils.sheet_to_txt(worksheet) + '\n';
+                    });
+                    resolve(fullText);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        } else if (extension === 'docx') {
+            reader.onload = async (e) => {
+                try {
+                    const arrayBuffer = e.target.result;
+                    const result = await mammoth.convertToMarkdown({ arrayBuffer: arrayBuffer });
+                    resolve(result.value);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        } else if (extension === 'pdf') {
+            reader.onload = async (e) => {
+                try {
+                    const arrayBuffer = e.target.result;
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        fullText += pageText + '\n';
+                    }
+                    resolve(fullText);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        } else {
+            reject(new Error('Formato de arquivo não suportado.'));
+        }
+    });
+}
+
+function renderFileList() {
+    if (!elements.fileListContainer) return;
+    elements.fileListContainer.innerHTML = '';
+
+    state.uploadedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+
+        const extension = file.name.split('.').pop().toLowerCase();
+        let icon = '📄';
+        if (extension === 'pdf') icon = '📕';
+        else if (extension === 'docx') icon = '📘';
+        else if (extension === 'xlsx' || extension === 'xls' || extension === 'csv') icon = '📗';
+        else if (extension === 'json') icon = '⚙️';
+
+        const sizeKb = (file.size / 1024).toFixed(1);
+
+        item.innerHTML = `
+            <div class="file-info">
+                <span class="file-icon">${icon}</span>
+                <div class="file-details">
+                    <span class="file-name" title="${file.name}">${file.name}</span>
+                    <span class="file-size">${sizeKb} KB</span>
+                </div>
+            </div>
+            <button class="file-remove" onclick="removeUploadedFile(${index})" title="Remover arquivo">✕</button>
+        `;
+        elements.fileListContainer.appendChild(item);
+    });
+}
+
+window.removeUploadedFile = function (index) {
+    state.uploadedFiles.splice(index, 1);
+    renderFileList();
+};
 
 function initStyleEventListeners() {
     const styleInputs = [
@@ -729,7 +881,7 @@ function updateUIFromStyle(style) {
     }
 }
 
-function savePreset() {
+async function savePreset() {
     const nameInput = elements.presetNameInput;
     const name = nameInput.value.trim();
     if (!name) {
@@ -738,44 +890,66 @@ function savePreset() {
     }
 
     const currentStyle = getCurrentStyle();
-    const presets = JSON.parse(localStorage.getItem('style_presets') || '[]');
-    presets.push({ name, style: currentStyle });
-    localStorage.setItem('style_presets', JSON.stringify(presets));
 
-    nameInput.value = '';
-    loadPresets();
-    showStatus(`✅ Preset "${name}" salvo com sucesso!`, 'success');
+    try {
+        const response = await fetch('/api/presets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, style: currentStyle })
+        });
+
+        if (response.ok) {
+            nameInput.value = '';
+            await loadPresets();
+            showStatus(`✅ Preset "${name}" salvo com sucesso nas nuvens!`, 'success');
+        } else {
+            const err = await response.json();
+            showStatus(`❌ Erro ao salvar preset: ${err.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving preset:', error);
+        showStatus('❌ Erro de conexão ao salvar preset', 'error');
+    }
 }
 
-function loadPresets() {
-    const presets = JSON.parse(localStorage.getItem('style_presets') || '[]');
+async function loadPresets() {
     const list = elements.presetsList;
     if (!list) return;
 
-    if (presets.length === 0) {
-        list.innerHTML = '<div style="text-align: center; font-size: 0.75rem; color: var(--text-tertiary); padding: 5px;">Nenhum preset salvo</div>';
-        return;
-    }
+    try {
+        const response = await fetch('/api/presets');
+        if (!response.ok) throw new Error('Falha ao carregar presets');
 
-    list.innerHTML = '';
-    presets.forEach((preset, index) => {
-        const item = document.createElement('div');
-        item.className = 'preset-item';
-        item.innerHTML = `
-            <div class="preset-info" onclick="applyPreset(${index})">
-                <span class="preset-name">${preset.name}</span>
-            </div>
-            <div class="preset-actions">
-                <button class="btn-preset-delete" onclick="deletePreset(event, ${index})" title="Excluir preset">✕</button>
-            </div>
-        `;
-        list.appendChild(item);
-    });
+        const presets = await response.json();
+        state.loadedPresets = presets; // Store in state for apply/delete
+
+        if (presets.length === 0) {
+            list.innerHTML = '<div style="text-align: center; font-size: 0.75rem; color: var(--text-tertiary); padding: 5px;">Nenhum preset salvo</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        presets.forEach((preset, index) => {
+            const item = document.createElement('div');
+            item.className = 'preset-item';
+            item.innerHTML = `
+                <div class="preset-info" onclick="applyPreset(${index})">
+                    <span class="preset-name">${preset.name}</span>
+                </div>
+                <div class="preset-actions">
+                    <button class="btn-preset-delete" onclick="deletePreset(event, ${index})" title="Excluir preset">✕</button>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error loading presets:', error);
+        list.innerHTML = '<div style="text-align: center; font-size: 0.75rem; color: var(--color-error); padding: 5px;">Erro ao carregar presets do servidor</div>';
+    }
 }
 
 window.applyPreset = function (index) {
-    const presets = JSON.parse(localStorage.getItem('style_presets') || '[]');
-    const preset = presets[index];
+    const preset = state.loadedPresets ? state.loadedPresets[index] : null;
     if (!preset) return;
 
     state.cardStyle = { ...state.cardStyle, ...preset.style };
@@ -784,16 +958,28 @@ window.applyPreset = function (index) {
     showStatus(`✨ Preset "${preset.name}" aplicado!`, 'success');
 };
 
-window.deletePreset = function (event, index) {
+window.deletePreset = async function (event, index) {
     event.stopPropagation();
-    const presets = JSON.parse(localStorage.getItem('style_presets') || '[]');
-    const presetName = presets[index].name;
+    const preset = state.loadedPresets ? state.loadedPresets[index] : null;
+    if (!preset) return;
 
-    if (confirm(`Deseja excluir o preset "${presetName}"?`)) {
-        presets.splice(index, 1);
-        localStorage.setItem('style_presets', JSON.stringify(presets));
-        loadPresets();
-        showStatus(`🗑️ Preset "${presetName}" excluído.`, 'info');
+    if (confirm(`Deseja excluir o preset "${preset.name}"?`)) {
+        try {
+            const response = await fetch(`/api/presets/${preset.id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                await loadPresets();
+                showStatus(`🗑️ Preset "${preset.name}" excluído.`, 'info');
+            } else {
+                const err = await response.json();
+                showStatus(`❌ Erro ao excluir: ${err.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting preset:', error);
+            showStatus('❌ Erro de conexão ao excluir preset', 'error');
+        }
     }
 };
 
@@ -1026,6 +1212,14 @@ async function generateQuiz() {
     }
 
     // Prepare quiz configuration
+    let finalDetails = elements.detailsTextarea.value.trim();
+    if (state.uploadedFiles.length > 0) {
+        finalDetails += '\n\nCONTEÚDO DOS ARQUIVOS CARREGADOS:\n';
+        state.uploadedFiles.forEach(file => {
+            finalDetails += `--- ARQUIVO: ${file.name} ---\n${file.content}\n\n`;
+        });
+    }
+
     const config = {
         language: elements.languageSelect.value,
         theme: theme,
@@ -1033,7 +1227,7 @@ async function generateQuiz() {
         format: elements.formatSelect.value,
         numQuestions: numQuestions,
         numAlternatives: parseInt(elements.numAlternativesSelect.value),
-        details: elements.detailsTextarea.value.trim()
+        details: finalDetails
     };
 
     // Set loading state
@@ -1442,6 +1636,54 @@ function enableAIImages() {
     }
 }
 
+window.swapCorrectAlternative = function (qIdx, newIdx) {
+    const q = state.generatedQuiz.questions[qIdx];
+    // Use trim to avoid mismatches due to hidden spaces
+    const oldIdx = q.alternatives.findIndex(alt => alt.trim() === q.correctAnswer.trim());
+
+    if (oldIdx === -1 || oldIdx === newIdx) return;
+
+    // Helper to get text without prefix like "A) " or "A)"
+    const getCleanText = (text) => {
+        const match = text.match(/^[A-Z]\)[\s]*(.*)/i);
+        return match ? match[1] : text;
+    };
+
+    const oldPrefixMatch = q.alternatives[oldIdx].match(/^[A-Z]\)[\s]*/i);
+    const newPrefixMatch = q.alternatives[newIdx].match(/^[A-Z]\)[\s]*/i);
+
+    const oldPrefix = oldPrefixMatch ? oldPrefixMatch[0] : '';
+    const newPrefix = newPrefixMatch ? newPrefixMatch[0] : '';
+
+    const oldContent = getCleanText(q.alternatives[oldIdx]);
+    const newContent = getCleanText(q.alternatives[newIdx]);
+
+    // Swap content but keep original prefixes of those positions
+    q.alternatives[oldIdx] = oldPrefix + newContent;
+    q.alternatives[newIdx] = newPrefix + oldContent;
+
+    // Update correctAnswer to the new string value
+    q.correctAnswer = q.alternatives[newIdx];
+
+    displayQuiz(state.generatedQuiz, state.currentConfig);
+
+    const letters = ['A', 'B', 'C', 'D', 'E'];
+    showStatus(`✅ Resposta correta movida para a posição ${letters[newIdx]}`, 'success');
+};
+
+window.toggleAdvancedControls = function (index) {
+    const controls = document.getElementById(`advancedControls${index}`);
+    const btns = document.querySelectorAll(`.btn-toggle-advanced[data-index="${index}"]`);
+    if (controls) {
+        const isHidden = controls.classList.contains('hidden');
+        controls.classList.toggle('hidden');
+        btns.forEach(btn => {
+            btn.classList.toggle('active', isHidden);
+            btn.innerHTML = isHidden ? '🎨 Ocultar' : '🎨 Ajustes';
+        });
+    }
+};
+
 function createQuestionCard(question, index, language = null) {
     const wrapper = document.createElement('div');
     wrapper.className = 'question-card-wrapper';
@@ -1449,8 +1691,9 @@ function createQuestionCard(question, index, language = null) {
 
     const styles = state.cardStyle;
     const lang = language || state.currentConfig?.language || 'Português';
-    const layout = question.questionLayout || 'default';
-    const imageUrl = question.questionImageUrl;
+    // Default to answer layout and image since it's visible by default
+    const layout = question.answerLayout || question.questionLayout || 'default';
+    const imageUrl = question.answerImageUrl || question.questionImageUrl;
 
     const formattedNumber = formatQuestionNumber(question.number, styles.numberFormat, lang);
 
@@ -1529,24 +1772,46 @@ function createQuestionCard(question, index, language = null) {
                 <input type="file" class="card-bg-input" accept="image/*" style="display: none;" onchange="handleCardBackgroundUpdate(${index}, this)">
             </div>
             <div class="control-group">
-                <button class="btn-control" onclick="updateCardImage(${index})" title="Trocar imagem lateral">🔄 Imagem</button>
-                <input type="file" class="card-image-input" accept="image/*" style="display: none;" onchange="handleCardImageUpdate(${index}, this)">
-            </div>
-            <div class="control-group">
                 <button class="btn-control btn-regenerate" onclick="openRegenerateModal(${index})" title="Regenerar questão com IA" style="background: rgba(255, 150, 0, 0.2); color: #ffad33; border: 1px solid rgba(255, 150, 0, 0.3);">⚡ Regenerar</button>
             </div>
             <div class="control-group">
-                <button class="btn-control btn-toggle-answer" onclick="toggleAnswer(${index})">👁️ Resposta</button>
+                <button class="btn-control btn-toggle-answer active" onclick="toggleAnswer(${index})">🙈 Ocultar Resposta</button>
                 <button class="btn-control btn-edit-toggle" onclick="toggleEditMode(${index})">✏️ Editar</button>
             </div>
 
             <div class="control-group">
-                <button class="btn-control" onclick="exportIsolatedQuestion(${index})" title="Exportar apenas esta questão como PNG">📥 Q</button>
-                <button class="btn-control" onclick="exportIsolatedAnswer(${index})" title="Exportar apenas esta resposta como PNG">📥 R</button>
+                <div style="font-size: 10px; color: var(--color-success); font-weight: 700; margin-right: 5px; align-self: center;">POSIÇÃO CORRETA:</div>
+                <div style="display: flex; gap: 4px;">
+                    ${question.alternatives.map((_, altIdx) => {
+        const letters = ['A', 'B', 'C', 'D', 'E'];
+        const isCorrect = question.alternatives[altIdx].trim() === question.correctAnswer.trim();
+        return `<button class="btn-control ${isCorrect ? 'active' : ''}" 
+                                        onclick="swapCorrectAlternative(${index}, ${altIdx})" 
+                                        style="min-width: 28px; padding: 4px; ${isCorrect ? 'pointer-events: none; opacity: 0.6;' : ''} font-weight: bold;"
+                                        title="Trocar posição da correta com a ${letters[altIdx]}">
+                                    ${letters[altIdx]}
+                                </button>`;
+    }).join('')}
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button class="btn-control" onclick="openReorderModal(${index})" title="Mover esta questão para outra posição" style="background: rgba(100, 200, 255, 0.1); color: #64c8ff; border: 1px solid rgba(100, 200, 255, 0.3);">↕️ Mover</button>
+            </div>
+
+            <div class="control-group">
+                <button class="btn-control btn-toggle-advanced" data-index="${index}" onclick="toggleAdvancedControls(${index})" title="Ajustes individuais de fundo e estilos">🎨 Ajustes</button>
+            </div>
+
+            <div class="control-group" onclick="exportIsolatedQuestion(${index})" title="Exportar apenas esta questão como PNG" style="cursor: pointer;">
+                <button class="btn-control">📥 Q</button>
+            </div>
+            <div class="control-group" onclick="exportIsolatedAnswer(${index})" title="Exportar apenas esta resposta como PNG" style="cursor: pointer;">
+                <button class="btn-control">📥 R</button>
             </div>
             
-            <!-- Ajustes em Tempo Real (Fora da Edição) -->
-            <div class="control-group" style="margin-left: auto; border-left: 1px solid var(--glass-border); padding-left: var(--space-sm); display: flex; flex-direction: column; gap: 4px; min-width: 440px;">
+            <!-- Ajustes em Tempo Real (Escondidos por padrão) -->
+            <div id="advancedControls${index}" class="control-group hidden" style="margin-left: auto; border-left: 1px solid var(--glass-border); padding-left: var(--space-sm); display: flex; flex-direction: column; gap: 4px; min-width: 440px;">
                 <!-- Linha 1: Background -->
                 <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
                     <div style="font-size: 10px; color: var(--color-primary-light); font-weight: 700; width: 45px; flex-shrink: 0;">FUNDO:</div>
@@ -1667,7 +1932,7 @@ function createQuestionCard(question, index, language = null) {
                             ${alternativesList}
                         </div>
                         ${(elements.narrativeJustificationFormatSelect.value === 'both' || elements.narrativeJustificationFormatSelect.value === 'print-only') ? `
-                        <div class="answer-section-ui hidden">
+                        <div class="answer-section-ui">
                             <div class="export-card-justification" style="text-align: center !important; word-spacing: normal !important; white-space: normal !important;">${cleanText(question.justification)}</div>
                         </div>` : ''}
                     </div>
@@ -1773,7 +2038,10 @@ function createQuestionCard(question, index, language = null) {
         </div>
 
         <div class="form-group">
-            <label class="form-label">Justificativa</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label class="form-label" style="margin-bottom: 0;">Justificativa</label>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="openRegenerateJustificationModal(${index})" style="padding: 2px 8px; font-size: 0.8rem; background: rgba(255, 150, 0, 0.1); color: #ffad33; border: 1px solid rgba(255, 150, 0, 0.3);">⚡ Regenerar</button>
+            </div>
             <textarea class="form-textarea edit-justification" rows="3">${question.justification}</textarea>
         </div>
 
@@ -2469,6 +2737,9 @@ function clearForm() {
     elements.difficultySelect.value = 'Médio';
     elements.formatSelect.value = 'Rápido';
     elements.numAlternativesSelect.value = '4';
+
+    state.uploadedFiles = [];
+    renderFileList();
 
     showStatus('Formulário limpo', 'success');
 }
@@ -4266,6 +4537,26 @@ function initRegenerateListeners() {
             regenerateQuestion(regenerateTargetIndex, null);
         });
     }
+
+    // Justification Listeners
+    if (elements.closeRegenerateJustificationModalBtn) {
+        elements.closeRegenerateJustificationModalBtn.addEventListener('click', closeRegenerateJustificationModal);
+    }
+    if (elements.regenerateJustificationModal) {
+        const overlay = elements.regenerateJustificationModal.querySelector('.modal-overlay');
+        if (overlay) overlay.addEventListener('click', closeRegenerateJustificationModal);
+    }
+    if (elements.regenerateJustificationCustomBtn) {
+        elements.regenerateJustificationCustomBtn.addEventListener('click', () => {
+            const prompt = elements.regenerateJustificationPromptInput.value;
+            regenerateJustification(regenerateTargetIndex, prompt);
+        });
+    }
+    if (elements.regenerateJustificationAutoBtn) {
+        elements.regenerateJustificationAutoBtn.addEventListener('click', () => {
+            regenerateJustification(regenerateTargetIndex, null);
+        });
+    }
 }
 
 // ===================================
@@ -4360,6 +4651,88 @@ function openRegenerateModal(index) {
 function closeRegenerateModal() {
     if (elements.regenerateModal) elements.regenerateModal.classList.add('hidden');
     regenerateTargetIndex = null;
+}
+
+function openRegenerateJustificationModal(index) {
+    if (typeof index !== 'number' || isNaN(index)) return;
+    regenerateTargetIndex = index;
+    if (elements.regenerateJustificationModal) {
+        elements.regenerateJustificationModal.classList.remove('hidden');
+        if (elements.regenerateJustificationPromptInput) {
+            elements.regenerateJustificationPromptInput.value = '';
+            elements.regenerateJustificationPromptInput.focus();
+        }
+    }
+}
+
+function closeRegenerateJustificationModal() {
+    if (elements.regenerateJustificationModal) elements.regenerateJustificationModal.classList.add('hidden');
+    regenerateTargetIndex = null;
+}
+
+async function regenerateJustification(index, customPrompt) {
+    if (index === null || index === undefined || !state.generatedQuiz) return;
+    closeRegenerateJustificationModal();
+    const qNum = index + 1;
+    showStatus(`⚡ Gerando nova justificativa para a questão ${qNum}...`, 'info');
+
+    try {
+        const question = state.generatedQuiz.questions[index];
+        const config = state.currentConfig || { language: 'Português' };
+
+        let promptParams = `
+CONTEXTO DA QUESTÃO:
+Pergunta: ${question.statement}
+Resposta Correta: ${question.correctAnswer}
+Idioma: ${config.language}
+
+TAREFA:
+Crie uma nova justificativa clara e explicativa que explique POR QUE a resposta correta é a correta.
+A justificativa não deve ser muito longa.
+${customPrompt ? `\nDIREÇÃO ESPECÍFICA: ${customPrompt}` : ''}
+
+RETORNO:
+Gere APENAS a justificativa e NADA MAIS, sem aspas adicionais, sem markdown, apenas o texto limpo em ${config.language}.
+`;
+
+        const activeModel = state.model || 'gpt-4o';
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: activeModel,
+                messages: [
+                    { role: 'system', content: "Você é um professor objetivo. Responda apenas com a justificativa requisitada, sem introduções." },
+                    { role: 'user', content: promptParams }
+                ],
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Erro na API');
+        }
+
+        const data = await response.json();
+        let content = data.choices[0].message.content.trim();
+
+        if (content.startsWith('"') && content.endsWith('"')) {
+            content = content.slice(1, -1);
+        }
+
+        const cardWrapper = document.querySelector(`.question-card-wrapper[data-question-index="${index}"]`);
+        if (cardWrapper) {
+            const textarea = cardWrapper.querySelector('.edit-justification');
+            if (textarea) textarea.value = content;
+        }
+
+        showStatus('✅ Justificativa regenerada! Revise e clique em "Salvar".', 'success');
+
+    } catch (error) {
+        console.error('Erro na regeneração da justificativa:', error);
+        showStatus(`❌ Falha ao regenerar justificativa: ${error.message}`, 'error');
+    }
 }
 
 async function regenerateQuestion(index, customPrompt) {
@@ -4482,6 +4855,119 @@ IMPORTANTE:
 2. Imagens: Use termos de busca em INGLÊS, simples e diretos (ex: "Eiffel Tower").
 3. A imagem da pergunta NÃO pode revelar a resposta.
 `;
+}
+
+// ===================================
+// REORDER QUESTION LOGIC
+// ===================================
+
+let reorderTargetIndex = null;
+
+function initReorderListeners() {
+    if (elements.closeReorderModalBtn) {
+        elements.closeReorderModalBtn.addEventListener('click', closeReorderModal);
+    }
+    if (elements.reorderModal) {
+        const overlay = elements.reorderModal.querySelector('.modal-overlay');
+        if (overlay) overlay.addEventListener('click', closeReorderModal);
+    }
+    if (elements.reorderApplyBtn) {
+        elements.reorderApplyBtn.addEventListener('click', () => {
+            const targetPos = parseInt(elements.reorderTargetPositionInput.value);
+            const swapOnly = elements.reorderSwapOnlyCheckbox.checked;
+            applyReorder(reorderTargetIndex, targetPos, swapOnly);
+        });
+    }
+    // Allow pressing Enter in the number input
+    if (elements.reorderTargetPositionInput) {
+        elements.reorderTargetPositionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const targetPos = parseInt(elements.reorderTargetPositionInput.value);
+                const swapOnly = elements.reorderSwapOnlyCheckbox.checked;
+                applyReorder(reorderTargetIndex, targetPos, swapOnly);
+            }
+        });
+    }
+}
+
+window.openReorderModal = function (index) {
+    if (typeof index !== 'number' || isNaN(index)) return;
+    if (!state.generatedQuiz) return;
+    reorderTargetIndex = index;
+
+    const total = state.generatedQuiz.questions.length;
+    const currentPos = index + 1; // 1-based
+
+    if (elements.reorderModal) {
+        elements.reorderModal.classList.remove('hidden');
+        if (elements.reorderTargetPositionInput) {
+            elements.reorderTargetPositionInput.max = total;
+            elements.reorderTargetPositionInput.value = currentPos;
+            elements.reorderTargetPositionInput.focus();
+            elements.reorderTargetPositionInput.select();
+        }
+        if (elements.reorderSwapOnlyCheckbox) {
+            elements.reorderSwapOnlyCheckbox.checked = false;
+        }
+        // Show which question is being moved
+        const q = state.generatedQuiz.questions[index];
+        const preview = q.statement.length > 60 ? q.statement.slice(0, 60) + '…' : q.statement;
+        const modalBody = elements.reorderModal.querySelector('.modal-body p');
+        if (modalBody) {
+            modalBody.innerHTML = `Movendo <strong>Questão ${currentPos}</strong>: <em style="opacity:0.7;">"${preview}"</em><br><small style="opacity:0.5;">(Total: ${total} questões)</small>`;
+        }
+    }
+};
+
+function closeReorderModal() {
+    if (elements.reorderModal) elements.reorderModal.classList.add('hidden');
+    reorderTargetIndex = null;
+}
+
+function applyReorder(fromIndex, targetPos, swapOnly) {
+    if (fromIndex === null || fromIndex === undefined || !state.generatedQuiz) return;
+
+    const questions = state.generatedQuiz.questions;
+    const total = questions.length;
+    const toIndex = targetPos - 1; // Convert to 0-based
+
+    // Validate
+    if (isNaN(toIndex) || toIndex < 0 || toIndex >= total) {
+        showStatus(`❌ Posição inválida. Escolha entre 1 e ${total}.`, 'error');
+        return;
+    }
+    if (fromIndex === toIndex) {
+        closeReorderModal();
+        showStatus('ℹ️ A questão já está nessa posição.', 'info');
+        return;
+    }
+
+    closeReorderModal();
+
+    if (swapOnly) {
+        // Simple swap: just exchange the two elements
+        const temp = questions[fromIndex];
+        questions[fromIndex] = questions[toIndex];
+        questions[toIndex] = temp;
+        showStatus(`✅ Questões ${fromIndex + 1} e ${toIndex + 1} trocadas de posição!`, 'success');
+    } else {
+        // Shift mode: remove from origin, insert at destination
+        const [moved] = questions.splice(fromIndex, 1);
+        questions.splice(toIndex, 0, moved);
+        showStatus(`✅ Questão movida para a posição ${targetPos}. As demais foram reorganizadas.`, 'success');
+    }
+
+    // Renumber all questions to reflect new order
+    renumberQuestions(questions);
+
+    // Re-render
+    displayQuiz(state.generatedQuiz, state.currentConfig);
+}
+
+function renumberQuestions(questions) {
+    questions.forEach((q, i) => {
+        q.number = i + 1;
+    });
 }
 
 // ===================================

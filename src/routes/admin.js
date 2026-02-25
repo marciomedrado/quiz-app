@@ -14,7 +14,7 @@ router.get('/users/search', requireAuth, requireAdmin, async (req, res) => {
         const users = await prisma.user.findMany({
             where: {
                 OR: [
-                    { email: { contains: q, mode: 'insensitive' } },
+                    { email: { contains: q } },
                     { id: { contains: q } }
                 ]
             },
@@ -22,6 +22,37 @@ router.get('/users/search', requireAuth, requireAdmin, async (req, res) => {
                 subscription: true
             },
             take: 10
+        });
+
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// List all users with filters
+router.get('/users', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { role, hasSubscription } = req.query;
+        let where = {};
+
+        if (role) {
+            where.role = role;
+        }
+
+        if (hasSubscription === 'true') {
+            where.subscription = { isNot: null };
+        } else if (hasSubscription === 'false') {
+            where.subscription = { is: null };
+        }
+
+        const users = await prisma.user.findMany({
+            where,
+            include: {
+                subscription: true
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100 // Cap for performance
         });
 
         res.json(users);
@@ -101,7 +132,7 @@ router.get('/audit/purchases', requireAuth, requireSuperAdmin, async (req, res) 
 });
 
 // Get user ledger
-router.get('/audit/ledger/:userId', requireAuth, requireSuperAdmin, async (req, res) => {
+router.get('/audit/ledger/:userId', requireAuth, requireAdmin, async (req, res) => {
     try {
         const ledger = await prisma.creditLedger.findMany({
             where: { userId: req.params.userId },
