@@ -27,12 +27,23 @@ app.use(cors({
     credentials: true
 }));
 
+// Middleware to parse JSON
+app.use(express.json({
+    verify: (req, res, buf) => {
+        if (req.originalUrl.startsWith('/api/billing/webhook')) {
+            req.rawBody = buf;
+        }
+    }
+}));
+app.use(express.static(__dirname));
+
 // Routes
 const billingRoutes = require('./src/routes/billing');
-app.use('/api/billing', billingRoutes);
-
-app.use(express.json());
-app.use(express.static(__dirname));
+const authRoutes = require('./src/routes/auth');
+const userRoutes = require('./src/routes/user');
+const creditRoutes = require('./src/routes/credits');
+const adminRoutes = require('./src/routes/admin');
+const presetRoutes = require('./src/routes/presets');
 
 // Rate Limiting for Auth
 const authLimiter = rateLimit({
@@ -41,18 +52,11 @@ const authLimiter = rateLimit({
     message: { error: 'Muitas tentativas de acesso. Tente novamente em 15 minutos.' }
 });
 
-// Routes
-const authRoutes = require('./src/routes/auth');
-const userRoutes = require('./src/routes/user');
-const creditRoutes = require('./src/routes/credits');
-const adminRoutes = require('./src/routes/admin');
-const presetRoutes = require('./src/routes/presets');
-
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/credits', creditRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/billing', billingRoutes); // Checkout route
+app.use('/api/billing', billingRoutes);
 app.use('/api/presets', presetRoutes);
 
 // Endpoint for Proxy Image Search

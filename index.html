@@ -685,7 +685,24 @@
                         <option value="Italiano">Italiano</option>
                         <option value="日本語">日本語</option>
                         <option value="中文">中文</option>
+                        <option value="Polonês">Polonês</option>
+                        <option value="Sueco">Sueco</option>
+                        <option value="Norueguês">Norueguês</option>
+                        <option value="Húngaro">Húngaro</option>
+                        <option value="Romeno">Romeno</option>
+                        <option value="Grego">Grego</option>
+                        <option value="Turco">Turco</option>
+                        <option value="Árabe">Árabe</option>
+                        <option value="Personalizado">Personalizado...</option>
                     </select>
+                </div>
+
+                <div id="customLanguageGroup" class="form-group hidden">
+                    <label for="customLanguage" class="form-label">
+                        Especifique o Idioma <span class="required">*</span>
+                    </label>
+                    <input type="text" id="customLanguage" class="form-input"
+                        placeholder="Ex: Latim, Russo, Coreano...">
                 </div>
 
                 <div class="form-group">
@@ -711,16 +728,7 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="format" class="form-label">
-                        Formato <span class="required">*</span>
-                    </label>
-                    <select id="format" class="form-select">
-                        <option value="Rápido">Quiz Rápido (10 questões)</option>
-                        <option value="Longo">Quiz Longo (20-100 questões)</option>
-                        <option value="Série">Série (Multi-parte)</option>
-                    </select>
-                </div>
+
 
                 <div class="form-group">
                     <label for="numQuestions" class="form-label">
@@ -741,6 +749,43 @@
                         <option value="5">5 alternativas</option>
                     </select>
                 </div>
+
+                <div class="form-group">
+                    <label for="justificationLevel" class="form-label">
+                        Detalhamento da Justificativa <span class="required">*</span>
+                    </label>
+                    <select id="justificationLevel" class="form-select">
+                        <option value="Curto">Curto (Direto ao ponto)</option>
+                        <option value="Médio" selected>Médio (Com contexto)</option>
+                        <option value="Detalhado">Detalhado (Explicação profunda)</option>
+                        <option value="Personalizado">Personalizado...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="customJustificationGroup" class="form-group hidden mt-md">
+                <label for="customJustification" class="form-label">Instruções Personalizadas para Justificativa</label>
+                <textarea id="customJustification" class="form-textarea" rows="2"
+                    placeholder="Ex: Explique por que a alternativa está correta e por que as outras são distratores comuns..."></textarea>
+            </div>
+
+            <div class="form-group mt-md"
+                style="margin-bottom: var(--space-lg); display: flex; flex-wrap: wrap; gap: var(--space-lg);">
+                <label class="checkbox-container">
+                    <input type="checkbox" id="overrideJustification">
+                    <span class="checkbox-label"
+                        title="Se selecionado, o Gerador ignorará justificativas presentes em arquivos de referência e seguirá estas instruções.">
+                        Sobrepor justificativas do arquivo de referência
+                    </span>
+                </label>
+
+                <label class="checkbox-container">
+                    <input type="checkbox" id="updateOnlyJustifications">
+                    <span class="checkbox-label"
+                        title="Se selecionado e você já tiver um quiz gerado, clicar em 'Gerar Quiz' irá apenas atualizar as justificativas de todas as questões atuais, sem alterar as perguntas ou alternativas.">
+                        Atualizar apenas justificativas do quiz atual
+                    </span>
+                </label>
             </div>
 
             <!-- Configurações de Narrativa -->

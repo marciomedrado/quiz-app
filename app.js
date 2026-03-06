@@ -104,12 +104,18 @@ const elements = {
 
     // Quiz Configuration
     languageSelect: document.getElementById('language'),
+    customLanguageInput: document.getElementById('customLanguage'),
+    customLanguageGroup: document.getElementById('customLanguageGroup'),
     themeInput: document.getElementById('theme'),
     difficultySelect: document.getElementById('difficulty'),
-    formatSelect: document.getElementById('format'),
     numQuestionsInput: document.getElementById('numQuestions'),
     numAlternativesSelect: document.getElementById('numAlternatives'),
     detailsTextarea: document.getElementById('details'),
+    justificationLevelSelect: document.getElementById('justificationLevel'),
+    customJustificationInput: document.getElementById('customJustification'),
+    customJustificationGroup: document.getElementById('customJustificationGroup'),
+    overrideJustificationCheckbox: document.getElementById('overrideJustification'),
+    updateOnlyJustificationsCheckbox: document.getElementById('updateOnlyJustifications'),
 
     // Narrative Configuration
     channelNameInput: document.getElementById('channelName'),
@@ -312,7 +318,7 @@ const elements = {
 // ===================================
 // INITIALIZATION
 // ===================================
-function init() {
+async function init() {
     // Load saved configuration
     refreshModels();
     elements.modelSelect.value = state.model;
@@ -349,7 +355,7 @@ function init() {
     if (elements.importProjectHomeBtn) elements.importProjectHomeBtn.addEventListener('click', () => elements.metadataInput.click());
 
     // Format change handler
-    if (elements.formatSelect) elements.formatSelect.addEventListener('change', handleFormatChange);
+
 
     // Modal event listeners
     if (elements.settingsBtn) elements.settingsBtn.addEventListener('click', openSettings);
@@ -376,6 +382,32 @@ function init() {
             if (elements.customToneGroup) elements.customToneGroup.classList.add('hidden');
         }
     };
+
+    const toggleCustomLanguage = (value) => {
+        if (value === 'Personalizado') {
+            if (elements.customLanguageGroup) elements.customLanguageGroup.classList.remove('hidden');
+        } else {
+            if (elements.customLanguageGroup) elements.customLanguageGroup.classList.add('hidden');
+        }
+    };
+
+    if (elements.languageSelect) {
+        toggleCustomLanguage(elements.languageSelect.value);
+        elements.languageSelect.addEventListener('change', (e) => toggleCustomLanguage(e.target.value));
+    }
+    const toggleCustomJustification = (value) => {
+        if (value === 'Personalizado') {
+            if (elements.customJustificationGroup) elements.customJustificationGroup.classList.remove('hidden');
+        } else {
+            if (elements.customJustificationGroup) elements.customJustificationGroup.classList.add('hidden');
+        }
+    };
+
+    if (elements.justificationLevelSelect) {
+        toggleCustomJustification(elements.justificationLevelSelect.value);
+        elements.justificationLevelSelect.addEventListener('change', (e) => toggleCustomJustification(e.target.value));
+    }
+
     // Initial call for custom tone visibility
     if (elements.narratorToneSelect) {
         toggleCustomTone(elements.narratorToneSelect.value);
@@ -394,7 +426,6 @@ function init() {
         if (overlay) overlay.addEventListener('click', closeStyleModal);
     }
 
-    loadPresets();
     populateFontSelects();
     initStyleEventListeners();
     initBrainstormListeners();
@@ -404,7 +435,10 @@ function init() {
     injectGoogleFonts(); // Inject fonts for html2canvas
 
     // Auth & User Initialization
-    checkAuth();
+    await checkAuth();
+    if (state.currentUser) {
+        loadPresets();
+    }
     if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', handleLogout);
     if (elements.adminBtn) elements.adminBtn.addEventListener('click', () => window.location.href = '/admin');
 
@@ -918,7 +952,16 @@ async function loadPresets() {
 
     try {
         const response = await fetch('/api/presets');
-        if (!response.ok) throw new Error('Falha ao carregar presets');
+
+        if (response.status === 401) {
+            list.innerHTML = '<div style="text-align: center; font-size: 0.75rem; color: var(--text-tertiary); padding: 5px;">Faça login para ver seus presets</div>';
+            return;
+        }
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `Erro ${response.status}: Falha ao carregar presets`);
+        }
 
         const presets = await response.json();
         state.loadedPresets = presets; // Store in state for apply/delete
@@ -944,7 +987,7 @@ async function loadPresets() {
         });
     } catch (error) {
         console.error('Error loading presets:', error);
-        list.innerHTML = '<div style="text-align: center; font-size: 0.75rem; color: var(--color-error); padding: 5px;">Erro ao carregar presets do servidor</div>';
+        list.innerHTML = `<div style="text-align: center; font-size: 0.75rem; color: var(--color-error); padding: 5px;">${error.message}</div>`;
     }
 }
 
@@ -1205,6 +1248,16 @@ async function generateQuiz() {
         return;
     }
 
+    // Check if we should only update justifications
+    if (elements.updateOnlyJustificationsCheckbox && elements.updateOnlyJustificationsCheckbox.checked) {
+        if (!state.generatedQuiz || state.generatedQuiz.questions.length === 0) {
+            showStatus('Nenhum quiz gerado para atualizar as justificativas', 'error');
+            return;
+        }
+        await regenerateAllJustifications();
+        return;
+    }
+
     const numQuestions = parseInt(elements.numQuestionsInput.value);
     if (numQuestions < 5 || numQuestions > 100) {
         showStatus('O número de questões deve estar entre 5 e 100', 'error');
@@ -1221,13 +1274,16 @@ async function generateQuiz() {
     }
 
     const config = {
-        language: elements.languageSelect.value,
+        language: elements.languageSelect.value === 'Personalizado' ? elements.customLanguageInput.value : elements.languageSelect.value,
         theme: theme,
         difficulty: elements.difficultySelect.value,
-        format: elements.formatSelect.value,
+
         numQuestions: numQuestions,
         numAlternatives: parseInt(elements.numAlternativesSelect.value),
-        details: finalDetails
+        details: finalDetails,
+        justificationLevel: elements.justificationLevelSelect.value,
+        customJustification: elements.customJustificationInput.value,
+        overrideJustification: elements.overrideJustificationCheckbox.checked
     };
 
     // Set loading state
@@ -1377,9 +1433,16 @@ function buildUserPrompt(config) {
 IDIOMA DE SAÍDA: ${config.language} (IMPORTANTE: Todo o texto gerado deve estar neste idioma)
 TEMA: ${config.theme} (Se o tema estiver em outro idioma, traduza para ${config.language})
 NÍVEL DE DIFICULDADE: ${config.difficulty} (Traduza este nível para o idioma ${config.language})
-FORMATO: ${config.format} (Traduza este formato para o idioma ${config.language})
+
 NÚMERO DE QUESTÕES: ${config.numQuestions}
-NÚMERO DE ALTERNATIVAS: ${config.numAlternatives}`;
+NÚMERO DE ALTERNATIVAS: ${config.numAlternatives}
+
+DETALHAMENTO DA JUSTIFICATIVA: ${config.justificationLevel === 'Personalizado' ? config.customJustification : config.justificationLevel}
+${config.overrideJustification ? '⚠️ IMPORTANTE: IGNORE qualquer justificativa presente nos arquivos de referência/detalhes. Crie novas justificativas do zero seguindo o nível de detalhamento solicitado acima.' : ''}
+${config.justificationLevel === 'Curto' ? 'Instrução para Justificativa: Seja extremamente direto, responda em no máximo uma frase.' : ''}
+${config.justificationLevel === 'Médio' ? 'Instrução para Justificativa: Forneça contexto e explique o porquê da resposta correta de forma equilibrada.' : ''}
+${config.justificationLevel === 'Detalhado' ? 'Instrução para Justificativa: Explique profundamente os conceitos, por que a correta está certa e por que as outras são incorretas.' : ''}
+${config.justificationLevel === 'Personalizado' ? `Instrução para Justificativa: ${config.customJustification}` : ''}`;
 
     if (config.details) {
         prompt += `\nDETALHES ADICIONAIS: ${config.details} (Considere estes detalhes e traduza conforme necessário)`;
@@ -2735,8 +2798,13 @@ function clearForm() {
     elements.numQuestionsInput.value = '10';
     elements.languageSelect.value = 'Português';
     elements.difficultySelect.value = 'Médio';
-    elements.formatSelect.value = 'Rápido';
+
     elements.numAlternativesSelect.value = '4';
+    elements.justificationLevelSelect.value = 'Médio';
+    elements.customJustificationInput.value = '';
+    elements.overrideJustificationCheckbox.checked = false;
+    if (elements.updateOnlyJustificationsCheckbox) elements.updateOnlyJustificationsCheckbox.checked = false;
+    if (elements.customJustificationGroup) elements.customJustificationGroup.classList.add('hidden');
 
     state.uploadedFiles = [];
     renderFileList();
@@ -2744,20 +2812,7 @@ function clearForm() {
     showStatus('Formulário limpo', 'success');
 }
 
-function handleFormatChange() {
-    const format = elements.formatSelect.value;
 
-    if (format === 'Rápido') {
-        elements.numQuestionsInput.value = '10';
-        elements.numQuestionsInput.max = '10';
-    } else if (format === 'Longo') {
-        elements.numQuestionsInput.value = '20';
-        elements.numQuestionsInput.max = '100';
-    } else if (format === 'Série') {
-        elements.numQuestionsInput.value = '15';
-        elements.numQuestionsInput.max = '50';
-    }
-}
 
 // ===================================
 // QUESTION EDITING FUNCTIONS
@@ -4449,7 +4504,7 @@ OBJETIVO: Guiar o usuário para criar o MELHOR prompt de "Detalhes sobre o Tema"
 REGRAS CRÍTICAS PARA A SEÇÃO "TEXTO PARA DETALHES":
 1. O texto gerado nesta seção será colado diretamente no campo "Detalhes sobre o Tema" do gerador.
 2. DEVE incluir: O Tema refinado, O Enfoque Específico, Estilo da Narrativa desejada (se relevante) e Tópicos obrigatórios.
-3. PROIBIDO INCLUIR: Nível de Dificuldade, Formato (Quiz/Série) e Número de Alternativas. (Estes dados já são inseridos automaticamente pelo configurador do app).
+3. PROIBIDO INCLUIR: Nível de Dificuldade e Número de Alternativas. (Estes dados já são inseridos automaticamente pelo configurador do app).
 4. SE sugerir questões específicas, ELAS DEVEM SER COMPATÍVEIS COM MÚLTIPLA ESCOLHA.
    - O Enunciado deve ser sempre uma PERGUNTA DIRETA e CLARA (nunca um texto abstrato).
    - Mesmo que o tema seja de alta dificuldade ou contenha "pegadinhas", a pergunta deve ter uma resposta correta definida.
@@ -4732,6 +4787,96 @@ Gere APENAS a justificativa e NADA MAIS, sem aspas adicionais, sem markdown, ape
     } catch (error) {
         console.error('Erro na regeneração da justificativa:', error);
         showStatus(`❌ Falha ao regenerar justificativa: ${error.message}`, 'error');
+    }
+}
+
+async function regenerateAllJustifications() {
+    if (!state.generatedQuiz) return;
+
+    state.isGenerating = true;
+    elements.generateQuizBtn.disabled = true;
+    elements.generateQuizBtn.innerHTML = '<span class="loading-spinner"></span> Atualizando Justificativas...';
+    showStatus('⚡ Atualizando todas as justificativas do quiz...', 'info');
+
+    try {
+        const config = {
+            language: elements.languageSelect.value,
+            justificationLevel: elements.justificationLevelSelect.value,
+            customJustification: elements.customJustificationInput.value
+        };
+
+        const questionsData = state.generatedQuiz.questions.map(q => ({
+            number: q.number,
+            statement: q.statement,
+            correctAnswer: q.correctAnswer
+        }));
+
+        let instruction = "";
+        if (config.justificationLevel === 'Curto') {
+            instruction = "Seja extremamente direto, responda em no máximo uma frase.";
+        } else if (config.justificationLevel === 'Médio') {
+            instruction = "Forneça contexto e explique o porquê da resposta correta de forma equilibrada.";
+        } else if (config.justificationLevel === 'Detalhado') {
+            instruction = "Explique profundamente os conceitos, por que a correta está certa e por que as outras são incorretas.";
+        } else if (config.justificationLevel === 'Personalizado') {
+            instruction = config.customJustification;
+        }
+
+        const prompt = `Gere novas justificativas para as seguintes ${questionsData.length} questões de quiz no idioma ${config.language}.
+        
+ESPECIFICAÇÃO DE DETALHAMENTO: ${config.justificationLevel}
+INSTRUÇÃO ESPECÍFICA: ${instruction}
+
+QUESTÕES:
+${JSON.stringify(questionsData, null, 2)}
+
+RETORNO:
+Retorne APENAS um objeto JSON com uma array chamada 'justifications' contendo as justificativas na mesma ordem das questões.
+Exemplo: { "justifications": ["Justificativa 1", "Justificativa 2", ...] }`;
+
+        const activeModel = state.model || 'gpt-4o';
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: activeModel,
+                messages: [
+                    { role: 'system', content: "Você é um professor objetivo que fornece justificativas para questões de quiz." },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.7,
+                response_format: { type: "json_object" }
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+            throw new Error(err.error || 'Falha ao conectar com a IA');
+        }
+
+        const data = await response.json();
+        const content = JSON.parse(data.choices[0].message.content);
+
+        if (content.justifications && Array.isArray(content.justifications)) {
+            content.justifications.forEach((just, idx) => {
+                if (state.generatedQuiz.questions[idx]) {
+                    state.generatedQuiz.questions[idx].justification = just;
+                }
+            });
+
+            displayQuiz(state.generatedQuiz);
+            showStatus('✅ Todas as justificativas foram atualizadas!', 'success');
+        } else {
+            throw new Error('Formato de resposta inválido da IA');
+        }
+
+    } catch (error) {
+        console.error('Error updating justifications:', error);
+        showStatus('Erro ao atualizar justificativas: ' + error.message, 'error');
+    } finally {
+        state.isGenerating = false;
+        elements.generateQuizBtn.disabled = false;
+        elements.generateQuizBtn.innerText = 'Gerar Quiz';
     }
 }
 
