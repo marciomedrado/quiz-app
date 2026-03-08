@@ -149,6 +149,14 @@ const elements = {
     exportAllQuestionImagesBtn: document.getElementById('exportAllQuestionImages'),
     exportAllAnswerImagesBtn: document.getElementById('exportAllAnswerImages'),
     exportSearchTermsBtn: document.getElementById('exportSearchTerms'),
+    generateImagePromptsBtn: document.getElementById('generateImagePrompts'),
+    imagePromptsModal: document.getElementById('imagePromptsModal'),
+    closeImagePromptsModalBtn: document.getElementById('closeImagePromptsModal'),
+    cancelImagePromptsBtn: document.getElementById('cancelImagePrompts'),
+    saveImagePromptsBtn: document.getElementById('saveImagePromptsBtn'),
+    imagePromptsContainer: document.getElementById('imagePromptsContainer'),
+    exportImagePromptsBtn: document.getElementById('exportImagePromptsBtn'),
+    exportImagePromptsQBtn: document.getElementById('exportImagePromptsQBtn'),
     exportAllTogetherBtn: document.getElementById('exportAllTogether'),
     generateNarrativeBtn: document.getElementById('generateNarrative'),
     bulkImportImagesBtn: document.getElementById('bulkImportImages'),
@@ -334,6 +342,16 @@ async function init() {
     if (elements.exportAllQuestionImagesBtn) elements.exportAllQuestionImagesBtn.addEventListener('click', exportAllQuestionImages);
     if (elements.exportAllAnswerImagesBtn) elements.exportAllAnswerImagesBtn.addEventListener('click', exportAllAnswerImages);
     if (elements.exportSearchTermsBtn) elements.exportSearchTermsBtn.addEventListener('click', exportSearchTerms);
+    if (elements.generateImagePromptsBtn) elements.generateImagePromptsBtn.addEventListener('click', generateImagePrompts);
+    if (elements.saveImagePromptsBtn) elements.saveImagePromptsBtn.addEventListener('click', saveImagePrompts);
+    if (elements.exportImagePromptsBtn) elements.exportImagePromptsBtn.addEventListener('click', () => exportImagePrompts('all'));
+    if (elements.exportImagePromptsQBtn) elements.exportImagePromptsQBtn.addEventListener('click', () => exportImagePrompts('questions'));
+    if (elements.closeImagePromptsModalBtn) elements.closeImagePromptsModalBtn.addEventListener('click', attemptCloseImagePromptsModal);
+    if (elements.cancelImagePromptsBtn) elements.cancelImagePromptsBtn.addEventListener('click', attemptCloseImagePromptsModal);
+    if (elements.imagePromptsModal) {
+        const overlay = elements.imagePromptsModal.querySelector('.modal-overlay');
+        if (overlay) overlay.addEventListener('click', attemptCloseImagePromptsModal);
+    }
     if (elements.exportAllTogetherBtn) elements.exportAllTogetherBtn.addEventListener('click', exportAllTogether);
     if (elements.exportAllTogetherBtn) elements.exportAllTogetherBtn.addEventListener('click', exportAllTogether);
     if (elements.generateNarrativeBtn) elements.generateNarrativeBtn.addEventListener('click', generateNarrative);
@@ -5113,6 +5131,248 @@ function renumberQuestions(questions) {
     questions.forEach((q, i) => {
         q.number = i + 1;
     });
+}
+
+// ===================================
+// IMAGE PROMPTS GENERATION (Midjourney/Meta AI)
+// ===================================
+
+window.markImagePromptsUnsaved = function () {
+    state.imagePromptsUnsaved = true;
+    if (elements.saveImagePromptsBtn) elements.saveImagePromptsBtn.disabled = false;
+};
+
+function attemptCloseImagePromptsModal() {
+    if (state.imagePromptsUnsaved) {
+        if (confirm('Você tem alterações não salvas nos prompts. Deseja salvar antes de fechar? (OK para Salvar, Cancelar para Fechar sem salvar)')) {
+            saveImagePrompts();
+        }
+    }
+    state.imagePromptsUnsaved = false;
+    elements.imagePromptsModal.classList.add('hidden');
+}
+
+function saveImagePrompts() {
+    if (!state.generatedQuiz || !state.generatedQuiz.imagePromptsData) return;
+
+    state.generatedQuiz.imagePromptsData.forEach((item, index) => {
+        const qEl = document.getElementById(`prompt_q_${index}`);
+        const aEl = document.getElementById(`prompt_a_${index}`);
+        if (qEl) item.question_prompt = qEl.value;
+        if (aEl) item.answer_prompt = aEl.value;
+    });
+
+    state.imagePromptsUnsaved = false;
+    if (elements.saveImagePromptsBtn) elements.saveImagePromptsBtn.disabled = true;
+    showStatus('💾 Prompts salvos no quiz!', 'success');
+}
+
+async function generateImagePrompts() {
+    if (!state.generatedQuiz || !state.generatedQuiz.questions || state.generatedQuiz.questions.length === 0) {
+        showStatus('Por favor, gere um quiz primeiro.', 'error');
+        return;
+    }
+
+    elements.imagePromptsModal.classList.remove('hidden');
+
+    if (state.generatedQuiz.imagePromptsData) {
+        // Loads from memory
+        renderImagePromptsEditor();
+        return;
+    }
+
+    elements.imagePromptsContainer.innerHTML = '<div style="text-align: center; padding: 20px;"><p style="font-size: 1.1rem; margin-bottom: 20px;">Gerando prompts complexos com IA para as imagens do quiz. Isso pode levar alguns segundos...</p><div class="loading-spinner" style="margin: 0 auto; width: 40px; height: 40px; border-width: 4px;"></div></div>';
+    elements.exportImagePromptsBtn.disabled = true;
+
+    try {
+        const quizDataForPrompts = state.generatedQuiz.questions.map((q, i) => ({
+            number: q.number || (i + 1),
+            statement: q.statement,
+            correctAnswer: q.correctAnswer
+        }));
+
+        const systemPrompt = `Você é um engenheiro de prompts especialista em imagens geradas por IA (Midjourney, DALL-E, Meta AI, etc.).
+Sua tarefa é criar prompts em INGLÊS que são super descritivos e densos visualmente. Sempre crie a partir do contexto da questão.
+Para CADA questão, você criará 2 prompts:
+1. question_prompt: Representação visual do Enunciado
+2. answer_prompt: Representação visual da Resposta
+
+🚨 REGRA CRÍTICA PARA 'question_prompt' (CHECAGEM TRIPLA NECESSÁRIA): 
+Nunca, em hipótese alguma, o 'question_prompt' deve entregar ou mostrar a resposta correta da pergunta. Ele deve apenas ilustrar o contexto misterioso ou a situação, sem spoilers. Pense em como ilustrar a DÚVIDA, ou o elemento inicial.
+O 'answer_prompt' DEVE ser a revelação e focar majestosamente na resposta.
+
+Formato: NÃO USAR PARÂMETROS DE COMANDO (como --v 6.0 ou --ar 16:9). Apenas a descrição textual em INGLÊS.
+Responda ESTRITAMENTE em JSON seguindo este esquema:
+{
+  "prompts": [
+    {
+      "number": 1,
+      "question_prompt": "Cinematic photography of a mysterious shadowy landscape...",
+      "answer_prompt": "Majestic golden pyramid reaching the sky..."
+    }
+  ]
+}`;
+
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: state.model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: JSON.stringify(quizDataForPrompts) }
+                ],
+                temperature: 0.7,
+                response_format: { type: "json_object" }
+            })
+        });
+
+        if (!response.ok) throw new Error('Falha ao comunicar com a API OpenAI.');
+
+        const data = await response.json();
+        const content = JSON.parse(data.choices[0].message.content);
+        state.generatedQuiz.imagePromptsData = content.prompts;
+
+        // When first generated from scratch, we mark it as saved (unsaved = false)
+        state.imagePromptsUnsaved = false;
+
+        renderImagePromptsEditor();
+    } catch (error) {
+        console.error('Erro na geração:', error);
+        elements.imagePromptsContainer.innerHTML = `<p style="color: var(--color-error); text-align: center;">Erro: ${error.message}</p>`;
+    }
+}
+
+window.regenerateSpecificPrompt = async function (index, type) {
+    const questionObj = state.generatedQuiz.questions[index];
+    const instrInputId = type === 'question' ? `regen_instr_q_${index}` : `regen_instr_a_${index}`;
+    const instr = document.getElementById(instrInputId).value.trim();
+
+    let btnId = type === 'question' ? `btn_regen_q_${index}` : `btn_regen_a_${index}`;
+    const btn = document.getElementById(btnId);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Gerando...";
+    }
+
+    try {
+        const sysPrompt = `Você é um engenheiro de prompts especialista em imagens geradas por IA.
+Sua tarefa é gerar UM ÚNICO prompt descrevendo visualmente a cena ${type === 'question' ? 'do ENUNCIADO, de forma misteriosa e que NUNCA revele a resposta correta.' : 'da RESPOSTA MAJESTOSA revelada.'}
+${instr ? `\nINSTRUÇÃO ADICIONAL: ${instr}` : ''}
+Use a pergunta: "${questionObj.statement}" 
+Resposta correta: "${questionObj.correctAnswer}"
+Formato: Apenas texto do prompt em inglês, sem aspas, sem markdown, sem formato JSON, e sem parâmetros numéricos (ex: não inclua --ar ou --v).`;
+
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: state.model,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: "Gere o prompt." }
+                ],
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) throw new Error('Falha na API OpenAI');
+
+        const data = await response.json();
+        let content = data.choices[0].message.content.trim();
+        content = content.replace(/^"|"$/g, '');
+
+        const targetArea = document.getElementById(type === 'question' ? `prompt_q_${index}` : `prompt_a_${index}`);
+        if (targetArea) {
+            targetArea.value = content;
+            window.markImagePromptsUnsaved();
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Erro ao regenerar prompt: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "⭐ Gerar Novamente";
+        }
+    }
+};
+
+function renderImagePromptsEditor() {
+    elements.imagePromptsContainer.innerHTML = '';
+
+    state.generatedQuiz.imagePromptsData.forEach((item, index) => {
+        const questionObj = state.generatedQuiz.questions[index];
+        const card = document.createElement('div');
+        card.style.cssText = 'background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;';
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h3 style="font-size: 1.1rem; color: var(--color-primary-light);">Questão ${item.number}</h3>
+            </div>
+            
+            <p style="font-size: 0.85rem; margin-bottom: 5px; opacity: 0.8;"><strong>Enunciado:</strong> ${questionObj.statement}</p>
+            <div class="form-group mb-md">
+                <label class="form-label" style="color: #f59e0b; margin-top: 10px; font-weight: bold;">🎨 Prompt da Imagem do Enunciado</label>
+                <textarea class="form-textarea" id="prompt_q_${index}" rows="3" style="font-family: monospace;" oninput="window.markImagePromptsUnsaved()">${item.question_prompt}</textarea>
+                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <input type="text" id="regen_instr_q_${index}" class="form-input" placeholder="Instruções para nova IA (opcional)" style="font-size: 0.8rem; padding: 4px 8px; flex: 1;">
+                    <button id="btn_regen_q_${index}" class="btn btn-secondary btn-sm" onclick="window.regenerateSpecificPrompt(${index}, 'question')" style="white-space: nowrap; font-size: 0.8rem; padding: 4px 10px;">⭐ Gerar Novamente</button>
+                </div>
+            </div>
+            
+            <p style="font-size: 0.85rem; margin-bottom: 5px; margin-top: 15px; border-top: 1px dashed var(--glass-border); padding-top: 15px; opacity: 0.8;"><strong>Resposta Correta:</strong> ${questionObj.correctAnswer}</p>
+            <div class="form-group">
+                <label class="form-label" style="color: #10b981; margin-top: 10px; font-weight: bold;">✨ Prompt da Imagem da Resposta</label>
+                <textarea class="form-textarea" id="prompt_a_${index}" rows="3" style="font-family: monospace;" oninput="window.markImagePromptsUnsaved()">${item.answer_prompt}</textarea>
+                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <input type="text" id="regen_instr_a_${index}" class="form-input" placeholder="Instruções para nova IA (opcional)" style="font-size: 0.8rem; padding: 4px 8px; flex: 1;">
+                    <button id="btn_regen_a_${index}" class="btn btn-secondary btn-sm" onclick="window.regenerateSpecificPrompt(${index}, 'answer')" style="white-space: nowrap; font-size: 0.8rem; padding: 4px 10px;">⭐ Gerar Novamente</button>
+                </div>
+            </div>
+        `;
+        elements.imagePromptsContainer.appendChild(card);
+    });
+
+    elements.exportImagePromptsBtn.disabled = false;
+    if (elements.exportImagePromptsQBtn) elements.exportImagePromptsQBtn.disabled = false;
+    if (elements.saveImagePromptsBtn) elements.saveImagePromptsBtn.disabled = !state.imagePromptsUnsaved;
+}
+
+function exportImagePrompts(mode = 'all') {
+    if (!state.generatedQuiz || !state.generatedQuiz.imagePromptsData) return;
+
+    let txtContent = "";
+    state.generatedQuiz.imagePromptsData.forEach((item, index) => {
+        const qEl = document.getElementById(`prompt_q_${index}`);
+        const aEl = document.getElementById(`prompt_a_${index}`);
+        const qVal = qEl ? qEl.value : item.question_prompt;
+        const aVal = aEl ? aEl.value : item.answer_prompt;
+
+        if (mode === 'all') {
+            txtContent += `${qVal}\n`;
+            txtContent += `${aVal}\n`;
+        } else if (mode === 'questions') {
+            txtContent += `${qVal}\n`;
+        }
+    });
+
+    const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    let filename = 'quiz_image_prompts';
+    if (mode === 'questions') filename += '_enunciados';
+
+    link.download = `${filename}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showStatus('✅ Prompts exportados com sucesso!', 'success');
 }
 
 // ===================================
