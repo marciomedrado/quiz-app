@@ -83,7 +83,8 @@ const state = {
         return saved ? { ...DEFAULT_TIMING, ...saved } : { ...DEFAULT_TIMING };
     })(),
     currentUser: null,
-    uploadedFiles: []
+    uploadedFiles: [],
+    backgroundImportMode: 'same'
 };
 
 
@@ -320,7 +321,13 @@ const elements = {
 
     // File Upload
     fileUploadInput: document.getElementById('fileUpload'),
-    fileListContainer: document.getElementById('fileList')
+    fileListContainer: document.getElementById('fileList'),
+
+    // Bulk Background Modal
+    bulkBackgroundModal: document.getElementById('bulkBackgroundModal'),
+    closeBulkBackgroundModalBtn: document.getElementById('closeBulkBackgroundModal'),
+    btnBackgroundSame: document.getElementById('btnBackgroundSame'),
+    btnBackgroundDifferent: document.getElementById('btnBackgroundDifferent')
 };
 
 // ===================================
@@ -368,7 +375,15 @@ async function init() {
     if (elements.importMetadataBtn) elements.importMetadataBtn.addEventListener('click', () => elements.metadataInput.click());
     if (elements.importMetadataTopBtn) elements.importMetadataTopBtn.addEventListener('click', () => elements.metadataInput.click());
     if (elements.metadataInput) elements.metadataInput.addEventListener('change', importMetadata);
-    if (elements.bulkImportBackgroundsBtn) elements.bulkImportBackgroundsBtn.addEventListener('click', () => elements.bulkBackgroundInput.click());
+    if (elements.bulkImportBackgroundsBtn) {
+        elements.bulkImportBackgroundsBtn.addEventListener('click', () => {
+            if (!state.generatedQuiz || !state.generatedQuiz.questions) {
+                showStatus('❌ Gere um quiz primeiro antes de importar backgrounds', 'error');
+                return;
+            }
+            elements.bulkBackgroundModal.classList.remove('hidden');
+        });
+    }
     if (elements.bulkBackgroundInput) elements.bulkBackgroundInput.addEventListener('change', bulkImportBackgrounds);
     if (elements.importProjectHomeBtn) elements.importProjectHomeBtn.addEventListener('click', () => elements.metadataInput.click());
 
@@ -387,8 +402,11 @@ async function init() {
 
     // ESC key to close modal
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && elements.settingsModal && !elements.settingsModal.classList.contains('hidden')) {
-            closeSettings();
+        if (e.key === 'Escape') {
+            if (elements.settingsModal && !elements.settingsModal.classList.contains('hidden')) closeSettings();
+            if (elements.bulkBackgroundModal && !elements.bulkBackgroundModal.classList.contains('hidden')) {
+                elements.bulkBackgroundModal.classList.add('hidden');
+            }
         }
     });
 
@@ -451,6 +469,29 @@ async function init() {
     initTimingListeners();
     initReorderListeners();
     injectGoogleFonts(); // Inject fonts for html2canvas
+
+    // Bulk Background Modal event listeners
+    if (elements.closeBulkBackgroundModalBtn) {
+        elements.closeBulkBackgroundModalBtn.addEventListener('click', () => elements.bulkBackgroundModal.classList.add('hidden'));
+    }
+    if (elements.btnBackgroundSame) {
+        elements.btnBackgroundSame.addEventListener('click', () => {
+            state.backgroundImportMode = 'same';
+            elements.bulkBackgroundModal.classList.add('hidden');
+            elements.bulkBackgroundInput.click();
+        });
+    }
+    if (elements.btnBackgroundDifferent) {
+        elements.btnBackgroundDifferent.addEventListener('click', () => {
+            state.backgroundImportMode = 'different';
+            elements.bulkBackgroundModal.classList.add('hidden');
+            elements.bulkBackgroundInput.click();
+        });
+    }
+    if (elements.bulkBackgroundModal) {
+        const overlay = elements.bulkBackgroundModal.querySelector('.modal-overlay');
+        if (overlay) overlay.addEventListener('click', () => elements.bulkBackgroundModal.classList.add('hidden'));
+    }
 
     // Auth & User Initialization
     await checkAuth();
@@ -1635,10 +1676,19 @@ function updateCardBackground(questionIndex) {
 
 function handleCardBackgroundUpdate(questionIndex, input) {
     if (input.files && input.files[0]) {
+        const wrapper = document.querySelector(`.question-card-wrapper[data-question-index="${questionIndex}"]`);
+        const answerSection = wrapper.querySelector('.answer-section-ui');
+        const isShowingAnswer = answerSection && !answerSection.classList.contains('hidden');
+
         const reader = new FileReader();
         reader.onload = function (e) {
             const imageUrl = e.target.result;
-            state.generatedQuiz.questions[questionIndex].backgroundImage = imageUrl;
+
+            if (isShowingAnswer) {
+                state.generatedQuiz.questions[questionIndex].answerBackgroundImage = imageUrl;
+            } else {
+                state.generatedQuiz.questions[questionIndex].backgroundImage = imageUrl;
+            }
 
             // Refresh the specific card or the whole quiz
             displayQuiz(state.generatedQuiz, state.currentConfig);
@@ -1649,11 +1699,27 @@ function handleCardBackgroundUpdate(questionIndex, input) {
 }
 
 function removeCardBackground(questionIndex) {
+    const wrapper = document.querySelector(`.question-card-wrapper[data-question-index="${questionIndex}"]`);
+    const answerSection = wrapper.querySelector('.answer-section-ui');
+    const isShowingAnswer = answerSection && !answerSection.classList.contains('hidden');
+
     const q = state.generatedQuiz.questions[questionIndex];
-    delete q.backgroundImage;
-    delete q.bgBrightness;
-    delete q.bgOpacity;
-    delete q.bgOverlayOpacity;
+
+    if (isShowingAnswer) {
+        delete q.answerBackgroundImage;
+    } else {
+        delete q.backgroundImage;
+    }
+
+    // Only clear visual settings if BOTH are gone? 
+    // Or if we remove one, should we keep the settings for the other?
+    // The current logic clears all global-ish settings for that card.
+    if (!q.backgroundImage && !q.answerBackgroundImage) {
+        delete q.bgBrightness;
+        delete q.bgOpacity;
+        delete q.bgOverlayOpacity;
+    }
+
     displayQuiz(state.generatedQuiz, state.currentConfig);
     showStatus('✅ Background removido!', 'success');
 }
@@ -1664,6 +1730,7 @@ function clearAllBackgrounds() {
     if (confirm('Tem certeza que deseja remover TODOS os backgrounds individuais?')) {
         state.generatedQuiz.questions.forEach(q => {
             delete q.backgroundImage;
+            delete q.answerBackgroundImage;
             delete q.bgBrightness;
             delete q.bgOpacity;
             delete q.bgOverlayOpacity;
@@ -1821,7 +1888,7 @@ function createQuestionCard(question, index, language = null) {
     wrapper.style.setProperty('--y-offset-img', `${styles.yOffsetImage}px`);
 
     // Background Image & Overlay
-    const bgImage = question.backgroundImage || styles.bgImage;
+    const bgImage = question.answerBackgroundImage || question.backgroundImage || styles.bgImage;
     let backgroundHTML = '';
     if (bgImage) {
         const isIndividual = !!question.backgroundImage;
@@ -2842,6 +2909,7 @@ function toggleAnswer(questionIndex) {
     const answerSection = wrapper.querySelector('.answer-section-ui');
     const toggleBtn = wrapper.querySelector('.btn-toggle-answer');
     const imageContainer = wrapper.querySelector('.export-card-image-container');
+    const bgContainer = wrapper.querySelector('.card-bg-image');
     const question = state.generatedQuiz.questions[questionIndex];
 
     if (answerSection.classList.contains('hidden')) {
@@ -2853,6 +2921,12 @@ function toggleAnswer(questionIndex) {
         // Swap to answer image if available
         if (imageContainer && question.answerImageUrl) {
             imageContainer.innerHTML = `<img src="${question.answerImageUrl}" alt="Imagem da resposta" class="export-card-image">`;
+        }
+
+        // Swap background
+        const bgImg = question.answerBackgroundImage || question.backgroundImage || state.cardStyle.bgImage;
+        if (bgContainer && bgImg) {
+            bgContainer.style.backgroundImage = `url('${bgImg}')`;
         }
     } else {
         // Hide answer
@@ -2867,6 +2941,12 @@ function toggleAnswer(questionIndex) {
             } else {
                 imageContainer.innerHTML = '<div class="image-placeholder">Sem imagem</div>';
             }
+        }
+
+        // Swap back background
+        const bgImg = question.backgroundImage || state.cardStyle.bgImage;
+        if (bgContainer && bgImg) {
+            bgContainer.style.backgroundImage = `url('${bgImg}')`;
         }
     }
 }
@@ -3190,17 +3270,34 @@ async function bulkImportBackgrounds(event) {
         });
 
         const imageDataUrls = await Promise.all(imagePromises);
+        let appliedCount = 0;
 
-        // Assign one background per question (cycling if needed)
-        state.generatedQuiz.questions.forEach((question, index) => {
-            const bgIndex = index % imageDataUrls.length;
-            question.backgroundImage = imageDataUrls[bgIndex];
-        });
+        if (state.backgroundImportMode === 'different') {
+            let imgIdx = 0;
+            state.generatedQuiz.questions.forEach((question, index) => {
+                if (imgIdx < imageDataUrls.length) {
+                    question.backgroundImage = imageDataUrls[imgIdx++];
+                    appliedCount++;
+                }
+                if (imgIdx < imageDataUrls.length) {
+                    question.answerBackgroundImage = imageDataUrls[imgIdx++];
+                    appliedCount++;
+                }
+            });
+        } else {
+            // Assign one background per question (cycling if needed)
+            state.generatedQuiz.questions.forEach((question, index) => {
+                const bgIndex = index % imageDataUrls.length;
+                question.backgroundImage = imageDataUrls[bgIndex];
+                question.answerBackgroundImage = null; // Clear separate answer background to use same as question
+            });
+            appliedCount = imageDataUrls.length;
+        }
 
         // Refresh the quiz display
         displayQuiz(state.generatedQuiz, state.currentConfig);
 
-        showStatus(`✅ ${imageDataUrls.length} backgrounds importados para ${state.generatedQuiz.questions.length} questões!`, 'success');
+        showStatus(`✅ ${appliedCount} backgrounds aplicados para ${state.generatedQuiz.questions.length} questões (${state.backgroundImportMode === 'same' ? 'Mesmo fundo' : 'Fundos diferentes'})!`, 'success');
 
         // Reset file input
         event.target.value = '';
@@ -3770,7 +3867,7 @@ function createExportCard(question, showAnswer, customStyles = null, language = 
     }
 
     // 4. Background Image
-    const bgImage = question.backgroundImage || styles.bgImage;
+    const bgImage = (showAnswer && question.answerBackgroundImage) ? question.answerBackgroundImage : (question.backgroundImage || styles.bgImage);
     let backgroundHTML = '';
     if (bgImage) {
         const isIndividual = !!question.backgroundImage;

@@ -1211,6 +1211,33 @@
         </div>
     </div>
 
+    <!-- Background Import Options Modal -->
+    <div id="bulkBackgroundModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass-card" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>🖼️ Importar Backgrounds em Lote</h2>
+                <button id="closeBulkBackgroundModal" class="btn-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px; opacity: 0.8; font-size: 0.95rem;">
+                    Como você deseja aplicar os backgrounds importados?
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button id="btnBackgroundSame" class="btn btn-primary" style="text-align: left; padding: 15px;">
+                        <strong>🖼️ Mesmo background</strong><br>
+                        <small style="opacity: 0.8;">Usa a mesma imagem para Enunciado e Resposta</small>
+                    </button>
+                    <button id="btnBackgroundDifferent" class="btn btn-secondary"
+                        style="text-align: left; padding: 15px; border-color: var(--color-accent);">
+                        <strong>🎨 Backgrounds diferentes</strong><br>
+                        <small style="opacity: 0.8;">Aplica imagens alternadas por ordem de nome</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Application Script -->
     <script src="app.js"></script>
 </body>
