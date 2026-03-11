@@ -18,8 +18,10 @@ model User {
   purchases      Purchase[]
   stripeCustomer StripeCustomer?
   stylePresets   StylePreset[]
+  configPresets  ConfigPreset[]
   subscription   Subscription?
   usageEvents    UsageEvent[]
+  channelName    String?
 }
 
 model StylePreset {
@@ -27,6 +29,15 @@ model StylePreset {
   userId    String
   name      String
   style     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ConfigPreset {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  config    String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
 }

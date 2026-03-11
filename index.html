@@ -666,9 +666,23 @@
 
         <!-- Quiz Configuration Card -->
         <section class="glass-card mb-lg">
-            <div class="card-header">
-                <h2>📝 Configuração do Quiz</h2>
-                <p>Defina os parâmetros para geração do seu quiz</p>
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                    <h2>📝 Configuração do Quiz</h2>
+                    <p>Defina os parâmetros para geração do seu quiz</p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-direction: column; align-items: flex-end;">
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="quizPresetName" class="form-input" placeholder="Nome do preset..."
+                            style="height: 32px; font-size: 0.85rem; width: 150px;">
+                        <button id="saveQuizPresetBtn" class="btn btn-sm btn-secondary"
+                            style="height: 32px; padding: 0 10px;">💾 Salvar</button>
+                    </div>
+                    <select id="quizPresetSelect" class="form-select"
+                        style="padding: 4px 8px; height: 32px; font-size: 0.85rem; width: 100%;">
+                        <option value="">Carregar Preset...</option>
+                    </select>
+                </div>
             </div>
 
             <div class="form-grid">
@@ -678,7 +692,7 @@
                     </label>
                     <select id="language" class="form-select">
                         <option value="Português">Português</option>
-                        <option value="English">English</option>
+                        <option value="English" selected>English</option>
                         <option value="Español">Español</option>
                         <option value="Français">Français</option>
                         <option value="Deutsch">Deutsch</option>
@@ -720,7 +734,8 @@
                     <select id="difficulty" class="form-select">
                         <option value="Iniciante">Iniciante (Fato isolado / Óbvio)</option>
                         <option value="Básico">Básico (Conhecimento comum / Memória simples)</option>
-                        <option value="Intermediário">Intermediário (Comparação / Pequenas inferências)</option>
+                        <option value="Intermediário" selected>Intermediário (Comparação / Pequenas inferências)
+                        </option>
                         <option value="Avançado">Avançado (Contexto / Interpretação / Múltiplos conceitos)</option>
                         <option value="Especialista">Especialista (Técnico / Termos específicos / Exceções)</option>
                         <option value="Mestre">Mestre (Armadilhas / Conexões indiretas / Estratégico)</option>
@@ -734,7 +749,7 @@
                     <label for="numQuestions" class="form-label">
                         Número de Questões <span class="required">*</span>
                     </label>
-                    <input type="number" id="numQuestions" class="form-input" min="5" max="100" value="10">
+                    <input type="number" id="numQuestions" class="form-input" min="5" max="100" value="20">
                     <small class="form-help">Entre 5 e 100 questões</small>
                 </div>
 
@@ -743,9 +758,9 @@
                         Número de Alternativas <span class="required">*</span>
                     </label>
                     <select id="numAlternatives" class="form-select">
-                        <option value="2">2 alternativas</option>
+                        <option value="2" selected>2 alternativas</option>
                         <option value="3">3 alternativas</option>
-                        <option value="4" selected>4 alternativas</option>
+                        <option value="4">4 alternativas</option>
                         <option value="5">5 alternativas</option>
                     </select>
                 </div>
@@ -804,7 +819,7 @@
                 <div class="form-group">
                     <label for="narratorTone" class="form-label">Tom do Narrador</label>
                     <select id="narratorTone" class="form-select" onchange="toggleCustomTone(this.value)">
-                        <option value="Animado">Animado e Enérgico</option>
+                        <option value="Animado" selected>Animado e Enérgico</option>
                         <option value="Formal">Formal e Profissional</option>
                         <option value="Suspense">Suspense e Misterioso</option>
                         <option value="Educativo">Educativo e Calmo</option>
@@ -822,8 +837,8 @@
                     <select id="narrativeQuestionFormat" class="form-select">
                         <option value="flourished">Floreado (Variado)</option>
                         <option value="full">Completo (Questão X)</option>
-                        <option value="number-only" selected>Apenas Número</option>
-                        <option value="none">Omitir</option>
+                        <option value="number-only">Apenas Número</option>
+                        <option value="none" selected>Omitir</option>
                     </select>
                 </div>
 
@@ -831,9 +846,9 @@
                     <label for="narrativeAlternativeFormat" class="form-label">Formato das Alternativas
                         (Narração)</label>
                     <select id="narrativeAlternativeFormat" class="form-select">
-                        <option value="full" selected>Letra e Conteúdo</option>
+                        <option value="full">Letra e Conteúdo</option>
                         <option value="letter-only">Apenas Letras</option>
-                        <option value="content-only">Apenas Conteúdo</option>
+                        <option value="content-only" selected>Apenas Conteúdo</option>
                         <option value="omit">Omitir Tudo</option>
                     </select>
                 </div>
@@ -841,10 +856,10 @@
                 <div class="form-group">
                     <label for="narrativeAnswerFormat" class="form-label">Formato da Resposta (Narração)</label>
                     <select id="narrativeAnswerFormat" class="form-select">
-                        <option value="full" selected>Completo (Letra + Conteúdo)</option>
+                        <option value="full">Completo (Letra + Conteúdo)</option>
                         <option value="almost-full">Letra + Conteúdo (Simples)</option>
                         <option value="keyword-only">Apenas Palavra "Resposta"</option>
-                        <option value="content-only">Apenas o Conteúdo</option>
+                        <option value="content-only" selected>Apenas o Conteúdo</option>
                     </select>
                 </div>
 

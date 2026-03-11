@@ -49,26 +49,80 @@ router.post('/', requireAuth, async (req, res) => {
     }
 });
 
-// Delete a preset
+// Delete a preset (Style)
 router.delete('/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     try {
-        // Ensure it belongs to the user
         const preset = await prisma.stylePreset.findFirst({
             where: { id, userId: req.user.id }
         });
-
-        if (!preset) {
-            return res.status(404).json({ error: 'Preset não encontrado' });
-        }
-
-        await prisma.stylePreset.delete({
-            where: { id }
-        });
+        if (!preset) return res.status(404).json({ error: 'Preset não encontrado' });
+        await prisma.stylePreset.delete({ where: { id } });
         res.json({ success: true });
     } catch (error) {
-        console.error('Error deleting preset:', error);
+        console.error('Error deleting style preset:', error);
         res.status(500).json({ error: 'Erro ao deletar preset' });
+    }
+});
+
+// --- CONFIG PRESETS ---
+
+// Get all config presets
+router.get('/config/all', requireAuth, async (req, res) => {
+    try {
+        const presets = await prisma.configPreset.findMany({
+            where: { userId: req.user.id },
+            orderBy: { createdAt: 'desc' }
+        });
+        const formattedPresets = presets.map(p => ({
+            id: p.id,
+            name: p.name,
+            config: JSON.parse(p.config)
+        }));
+        res.json(formattedPresets);
+    } catch (error) {
+        console.error('Error fetching config presets:', error);
+        res.status(500).json({ error: 'Erro ao carregar presets de configuração' });
+    }
+});
+
+// Create config preset
+router.post('/config', requireAuth, async (req, res) => {
+    const { name, config } = req.body;
+    if (!name || !config) return res.status(400).json({ error: 'Nome e configuração são obrigatórios' });
+
+    try {
+        const preset = await prisma.configPreset.create({
+            data: {
+                name,
+                config: JSON.stringify(config),
+                userId: req.user.id
+            }
+        });
+        res.json({
+            id: preset.id,
+            name: preset.name,
+            config: JSON.parse(preset.config)
+        });
+    } catch (error) {
+        console.error('Error creating config preset:', error);
+        res.status(500).json({ error: 'Erro ao salvar preset de configuração' });
+    }
+});
+
+// Delete config preset
+router.delete('/config/:id', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const preset = await prisma.configPreset.findFirst({
+            where: { id, userId: req.user.id }
+        });
+        if (!preset) return res.status(404).json({ error: 'Preset de configuração não encontrado' });
+        await prisma.configPreset.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting config preset:', error);
+        res.status(500).json({ error: 'Erro ao deletar preset de configuração' });
     }
 });
 

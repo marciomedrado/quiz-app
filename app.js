@@ -275,10 +275,14 @@ const elements = {
     timeAnswerInput: document.getElementById('timeAnswer'),
     timeOutroInput: document.getElementById('timeOutro'),
 
-    // Preset Controls
     presetNameInput: document.getElementById('presetNameInput'),
     savePresetBtn: document.getElementById('savePresetBtn'),
     presetsList: document.getElementById('presetsList'),
+
+    // Quiz Config Preset Elements
+    quizPresetNameInput: document.getElementById('quizPresetName'),
+    saveQuizPresetBtn: document.getElementById('saveQuizPresetBtn'),
+    quizPresetSelect: document.getElementById('quizPresetSelect'),
 
     // Brainstorm Elements
     brainstormModal: document.getElementById('brainstormModal'),
@@ -465,6 +469,52 @@ async function init() {
     populateFontSelects();
     initStyleEventListeners();
     initBrainstormListeners();
+
+    // Quiz Config Preset events
+    if (elements.saveQuizPresetBtn) elements.saveQuizPresetBtn.addEventListener('click', saveQuizPreset);
+    if (elements.quizPresetSelect) {
+        elements.quizPresetSelect.addEventListener('change', (e) => applyQuizPreset(e.target.value));
+    }
+
+    // Channel Name Auto-save
+    if (elements.channelNameInput) {
+        elements.channelNameInput.addEventListener('blur', async (e) => {
+            const val = e.target.value.trim();
+            if (state.currentUser) {
+                try {
+                    await fetch('/api/users/me', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ channelName: val })
+                    });
+                } catch (err) {
+                    console.error('Failed to save channel name', err);
+                }
+            }
+        });
+    }
+
+    // Drag and Drop for Details
+    if (elements.detailsTextarea) {
+        elements.detailsTextarea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.detailsTextarea.style.border = '2px dashed var(--color-primary)';
+        });
+        elements.detailsTextarea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.detailsTextarea.style.border = '';
+        });
+        elements.detailsTextarea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.detailsTextarea.style.border = '';
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFileUpload({ target: { files: e.dataTransfer.files } });
+            }
+        });
+    }
     initRegenerateListeners();
     initTimingListeners();
     initReorderListeners();
@@ -497,6 +547,7 @@ async function init() {
     await checkAuth();
     if (state.currentUser) {
         loadPresets();
+        loadConfigPresets();
     }
     if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', handleLogout);
     if (elements.adminBtn) elements.adminBtn.addEventListener('click', () => window.location.href = '/admin');
@@ -534,6 +585,10 @@ function updateUserInfo() {
         elements.userInfo.classList.remove('hidden');
         elements.userEmail.textContent = state.currentUser.email;
         elements.userCredits.textContent = state.currentUser.credits;
+
+        if (state.currentUser.channelName && elements.channelNameInput && !elements.channelNameInput.value) {
+            elements.channelNameInput.value = state.currentUser.channelName;
+        }
 
         const role = state.currentUser.role.toUpperCase();
         if (role === 'ADMIN' || role === 'SUPERADMIN') {
@@ -1084,6 +1139,103 @@ window.deletePreset = async function (event, index) {
         }
     }
 };
+
+// ===================================
+// QUIZ CONFIG PRESETS
+// ===================================
+
+async function loadConfigPresets() {
+    const select = elements.quizPresetSelect;
+    if (!select) return;
+
+    try {
+        const response = await fetch('/api/presets/config/all');
+        if (!response.ok) throw new Error('Falha ao carregar presets de config');
+
+        const presets = await response.json();
+        state.loadedConfigPresets = presets;
+
+        select.innerHTML = '<option value="">Carregar Preset...</option>';
+        presets.forEach((preset, index) => {
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.textContent = preset.name;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error('Error loading config presets', err);
+    }
+}
+
+async function saveQuizPreset() {
+    const name = elements.quizPresetNameInput.value.trim();
+    if (!name) { showStatus('Insira um nome para o preset', 'error'); return; }
+
+    const config = {
+        language: elements.languageSelect.value,
+        customLanguage: elements.customLanguageInput.value,
+        theme: elements.themeInput.value,
+        difficulty: elements.difficultySelect.value,
+        numQuestions: elements.numQuestionsInput.value,
+        numAlternatives: elements.numAlternativesSelect.value,
+        justificationLevel: elements.justificationLevelSelect.value,
+        customJustification: elements.customJustificationInput.value,
+        overrideJustification: elements.overrideJustificationCheckbox.checked,
+        channelName: elements.channelNameInput.value,
+        narratorTone: elements.narratorToneSelect.value,
+        customTone: elements.customToneInput.value,
+        narrativeQuestionFormat: elements.narrativeQuestionFormatSelect.value,
+        narrativeAlternativeFormat: elements.narrativeAlternativeFormatSelect.value,
+        narrativeAnswerFormat: elements.narrativeAnswerFormatSelect.value,
+        narrativeJustificationFormat: elements.narrativeJustificationFormatSelect.value,
+        details: elements.detailsTextarea.value
+    };
+
+    try {
+        const response = await fetch('/api/presets/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, config })
+        });
+        if (response.ok) {
+            elements.quizPresetNameInput.value = '';
+            await loadConfigPresets();
+            showStatus(`✅ Preset "${name}" salvo!`, 'success');
+        } else {
+            showStatus('❌ Erro ao salvar preset', 'error');
+        }
+    } catch (e) {
+        showStatus('❌ Erro de conexão', 'error');
+    }
+}
+
+function applyQuizPreset(index) {
+    if (index === '') return;
+    const preset = state.loadedConfigPresets[index];
+    if (!preset) return;
+
+    const c = preset.config;
+    if (c.language) { elements.languageSelect.value = c.language; elements.languageSelect.dispatchEvent(new Event('change')); }
+    if (c.customLanguage) elements.customLanguageInput.value = c.customLanguage;
+    if (c.theme) elements.themeInput.value = c.theme;
+    if (c.difficulty) elements.difficultySelect.value = c.difficulty;
+    if (c.numQuestions) elements.numQuestionsInput.value = c.numQuestions;
+    if (c.numAlternatives) elements.numAlternativesSelect.value = c.numAlternatives;
+    if (c.justificationLevel) { elements.justificationLevelSelect.value = c.justificationLevel; elements.justificationLevelSelect.dispatchEvent(new Event('change')); }
+    if (c.customJustification) elements.customJustificationInput.value = c.customJustification;
+    if (c.overrideJustification !== undefined) elements.overrideJustificationCheckbox.checked = c.overrideJustification;
+    if (c.channelName) elements.channelNameInput.value = c.channelName;
+    if (c.narratorTone) { elements.narratorToneSelect.value = c.narratorTone; elements.narratorToneSelect.dispatchEvent(new Event('change')); }
+    if (c.customTone) elements.customToneInput.value = c.customTone;
+    if (c.narrativeQuestionFormat) elements.narrativeQuestionFormatSelect.value = c.narrativeQuestionFormat;
+    if (c.narrativeAlternativeFormat) elements.narrativeAlternativeFormatSelect.value = c.narrativeAlternativeFormat;
+    if (c.narrativeAnswerFormat) elements.narrativeAnswerFormatSelect.value = c.narrativeAnswerFormat;
+    if (c.narrativeJustificationFormat) elements.narrativeJustificationFormatSelect.value = c.narrativeJustificationFormat;
+    if (c.details) elements.detailsTextarea.value = c.details;
+
+    showStatus(`✨ Preset de Configuração aplicado!`, 'success');
+    elements.quizPresetSelect.value = '';
+}
 
 // ===================================
 // STYLE MODAL CONTROLS

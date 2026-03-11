@@ -36,6 +36,8 @@ model User {
   purchases        Purchase[]
   subscription     Subscription?
   stylePresets     StylePreset[]
+  configPresets    ConfigPreset[]
+  channelName      String?
 }
 
 model StylePreset {
@@ -44,6 +46,15 @@ model StylePreset {
   user      User     @relation(fields: [userId], references: [id])
   name      String
   style     String   // JSON string
+  createdAt DateTime @default(now())
+}
+
+model ConfigPreset {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  config    String   // JSON string
   createdAt DateTime @default(now())
 }
 
