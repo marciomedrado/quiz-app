@@ -4068,7 +4068,7 @@ function createExportCard(question, showAnswer, customStyles = null, language = 
 
     // NOTE: Styles moved to INNER div to ensure the box wraps the content tightly (fit-content logic within percentage constraint)
     const answerHTML = (isJustificationVisible && answerText) ? `
-        <div class="export-card-answer-section ${!showAnswer ? 'invisible' : ''}" 
+        <div class="export-card-answer-section ${!showAnswer ? 'hidden' : ''}" 
              style="margin-top: auto; 
                     background: transparent !important; 
                     border: none !important;
