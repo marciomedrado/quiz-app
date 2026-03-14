@@ -351,6 +351,6 @@ app.listen(PORT, async () => {
     console.log('Certifique-se de que o arquivo .env está configurado corretamente.');
     console.log('================================================');
 
-    const url = `http://localhost:${PORT}/login`;
-    // exec(`start ${url}`); // Comentado
+    const url = `http://localhost:${PORT}`;
+    exec(`start ${url}`);
 });
