@@ -1,4 +1,4 @@
-﻿// ===================================
+// ===================================
 // QUIZ GENERATOR - APPLICATION LOGIC
 // ===================================
 
@@ -54,10 +54,10 @@ const DEFAULT_CARD_STYLE = {
 };
 
 const DEFAULT_TIMING = {
-    intro: 15,
-    cta: 5,
-    statement: 4,
-    alternatives: 4,
+    intro: 40,
+    cta: 15,
+    statement: 8,
+    alternatives: 8,
     timer: 5,
     answer: 15,
     outro: 10
@@ -78,10 +78,7 @@ const state = {
     sync_global: false,
     brainstormHistory: [],
     lastNarrativeData: null,
-    timing: (() => {
-        const saved = JSON.parse(localStorage.getItem('quiz_timing'));
-        return saved ? { ...DEFAULT_TIMING, ...saved } : { ...DEFAULT_TIMING };
-    })(),
+    timing: { ...DEFAULT_TIMING },
     currentUser: null,
     uploadedFiles: [],
     backgroundImportMode: 'same'
@@ -2556,6 +2553,7 @@ O tom de voz deve ser: ${tone}.
     - Justificativa: ${includeJustification ? 'NUNCA diga a palavra "Justificativa". Apenas diga o texto da justificativa logo após a resposta.' : 'NÃO mencione a justificativa na narração.'}
 
     REGRAS GERAIS:
+    0. REGRA ABSOLUTA: TODO e qualquer numeral na narrativa DEVE ser escrito por extenso (ex: "1" → "um", "10" → "dez", "100" → "cem", "2024" → "dois mil e vinte e quatro"). NUNCA use algarismos.
     1. Comece com uma introdução calorosa apropriada para o idioma ${language}, mencionando que o usuário está no canal "${channelName}".
     2. Explique brevemente o quiz no idioma ${language}: ${quiz.questions.length} questões, ${elements.numAlternativesSelect.value} alternativas por questão e o tema "${quiz.title}".
     3. Estimule o engajamento em ${language}: peça para anotarem os acertos, deixarem nos comentários de onde estão falando e se inscreverem no canal.
