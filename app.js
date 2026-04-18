@@ -54,13 +54,14 @@ const DEFAULT_CARD_STYLE = {
 };
 
 const DEFAULT_TIMING = {
-    intro: 40,
-    cta: 15,
-    statement: 8,
-    alternatives: 8,
+    intro1: 20,
+    intro2: 20,
+    cta: 25,
+    statement: 25,
+    alternatives: 15,
     timer: 5,
-    answer: 15,
-    outro: 10
+    answer: 25,
+    outro: 25
 };
 
 const state = {
@@ -2554,22 +2555,22 @@ O tom de voz deve ser: ${tone}.
 
     REGRAS GERAIS:
     0. REGRA ABSOLUTA: TODO e qualquer numeral na narrativa DEVE ser escrito por extenso (ex: "1" → "um", "10" → "dez", "100" → "cem", "2024" → "dois mil e vinte e quatro"). NUNCA use algarismos.
-    1. Comece com uma introdução calorosa apropriada para o idioma ${language}, mencionando que o usuário está no canal "${channelName}".
-    2. Explique brevemente o quiz no idioma ${language}: ${quiz.questions.length} questões, ${elements.numAlternativesSelect.value} alternativas por questão e o tema "${quiz.title}".
+    1. A introdução DEVE ser dividida em DUAS partes: "intro_part1" (saudação calorosa em ${language}, mencionando o canal "${channelName}") e "intro_part2" (explicação breve do quiz: ${quiz.questions.length} questões, ${elements.numAlternativesSelect.value} alternativas por questão e o tema "${quiz.title}").
     3. Estimule o engajamento em ${language}: peça para anotarem os acertos, deixarem nos comentários de onde estão falando e se inscreverem no canal.
-    4. Para cada pergunta, narre o enunciado ${includeAlternatives ? 'e as alternativas' : ''}, e depois a resposta ${includeJustification ? 'com a justificativa' : ''}, tudo em ${language}, respeitando o ESTILO DE FORMATAÇÃO escolhido acima.
+    4. REGRA CRÍTICA DE SEPARAÇÃO: O campo "statementNarrative" deve conter APENAS o enunciado da pergunta (e opcionalmente o número no estilo escolhido). O campo "alternativesNarrative" deve conter APENAS as alternativas. NUNCA misture alternativas dentro do statementNarrative. São blocos separados no roteiro.
     5. NÃO use frases de transição genéricas como "Próxima questão" (use o estilo de número escolhido).
     6. Antes da ÚLTIMA questão, crie um CTA (Call to Action) simpático e envolvente em ${language} pedindo para curtir e se inscrever.
     7. Após a ÚLTIMA questão, crie um texto de finalização (outro) em ${language} com um convite para compartilhar o vídeo e uma despedida como "Até o próximo vídeo" (traduza para ${language}).
     8. Retorne os dados em formato JSON seguindo esta estrutura:
     {
-        "intro": "Texto completo da introdução",
+        "intro_part1": "Primeira parte da introdução (saudação e boas-vindas ao canal)",
+        "intro_part2": "Segunda parte da introdução (explicação do quiz, tema e regras)",
         "preLastQuestionCTA": "Texto do CTA simpático antes da última questão",
         "questions": [
             {
                 "number": 1,
-                "statementNarrative": "Texto para ler o enunciado (incluindo o número no estilo escolhido)",
-                "alternativesNarrative": "Texto para ler as alternativas (ou vazio se omitido)",
+                "statementNarrative": "APENAS o enunciado da pergunta (com número no estilo escolhido). NÃO inclua alternativas aqui.",
+                "alternativesNarrative": "APENAS as alternativas, separadas. Este campo NÃO pode ficar vazio se houver alternativas.",
                 "answerNarrative": "Texto para ler a resposta e justificativa (sem dizer a palavra 'justificativa')"
             }
         ],
@@ -2606,11 +2607,17 @@ function exportToSRT(narrativeData) {
 
     const t = state.timing;
 
-    // 1. Intro
+    // 1. Intro - Parte 1
     srtContent += `${index++}\n`;
-    srtContent += `${formatSRTTime(currentTime)} --> ${formatSRTTime(currentTime + t.intro)}\n`;
-    srtContent += `${narrativeData.intro}\n\n`;
-    currentTime += t.intro;
+    srtContent += `${formatSRTTime(currentTime)} --> ${formatSRTTime(currentTime + t.intro1)}\n`;
+    srtContent += `${narrativeData.intro_part1 || narrativeData.intro || ''}\n\n`;
+    currentTime += t.intro1;
+
+    // 1b. Intro - Parte 2
+    srtContent += `${index++}\n`;
+    srtContent += `${formatSRTTime(currentTime)} --> ${formatSRTTime(currentTime + t.intro2)}\n`;
+    srtContent += `${narrativeData.intro_part2 || ''}\n\n`;
+    currentTime += t.intro2;
 
     narrativeData.questions.forEach((q, i) => {
         // CTA antes da última questão
@@ -2945,11 +2952,17 @@ function generateSRTString(narrativeData) {
     let index = 1;
     const t = state.timing;
 
-    // Intro
+    // Intro - Parte 1
     srtContent += `${index++}\n`;
-    srtContent += `${formatSRTTime(currentTime)} --> ${formatSRTTime(currentTime + t.intro)}\n`;
-    srtContent += `${narrativeData.intro}\n\n`;
-    currentTime += t.intro;
+    srtContent += `${formatSRTTime(currentTime)} --> ${formatSRTTime(currentTime + t.intro1)}\n`;
+    srtContent += `${narrativeData.intro_part1 || narrativeData.intro || ''}\n\n`;
+    currentTime += t.intro1;
+
+    // Intro - Parte 2
+    srtContent += `${index++}\n`;
+    srtContent += `${formatSRTTime(currentTime)} --> ${formatSRTTime(currentTime + t.intro2)}\n`;
+    srtContent += `${narrativeData.intro_part2 || ''}\n\n`;
+    currentTime += t.intro2;
 
     narrativeData.questions.forEach((q, i) => {
         if (i === narrativeData.questions.length - 1 && narrativeData.preLastQuestionCTA) {
