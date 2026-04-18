@@ -2553,7 +2553,7 @@ O tom de voz deve ser: ${tone}.
     - Justificativa: ${includeJustification ? 'NUNCA diga a palavra "Justificativa". Apenas diga o texto da justificativa logo após a resposta.' : 'NÃO mencione a justificativa na narração.'}
 
     REGRAS GERAIS:
-    0. REGRA ABSOLUTA: TODO e qualquer numeral na narrativa DEVE ser escrito por extenso (ex: "1" → "um", "10" → "dez", "100" → "cem", "2024" → "dois mil e vinte e quatro"). NUNCA use algarismos.
+    0. REGRA ABSOLUTA: TODO e qualquer numeral na narrativa DEVE ser escrito por extenso (ex: "1" → "um", "10" → "dez", "100" → "cem", "2024" → "dois mil e vinte e quatro"). Quando houver códigos alfanuméricos (letras + números), mantenha as letras e escreva apenas a parte numérica por extenso (ex: "B12" → "B doze", "A1" → "A um", "COVID-19" → "COVID dezenove"). NUNCA use algarismos.
     1. Comece com uma introdução calorosa apropriada para o idioma ${language}, mencionando que o usuário está no canal "${channelName}".
     2. Explique brevemente o quiz no idioma ${language}: ${quiz.questions.length} questões, ${elements.numAlternativesSelect.value} alternativas por questão e o tema "${quiz.title}".
     3. Estimule o engajamento em ${language}: peça para anotarem os acertos, deixarem nos comentários de onde estão falando e se inscreverem no canal.
