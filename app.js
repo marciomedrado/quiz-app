@@ -329,7 +329,14 @@ const elements = {
     bulkBackgroundModal: document.getElementById('bulkBackgroundModal'),
     closeBulkBackgroundModalBtn: document.getElementById('closeBulkBackgroundModal'),
     btnBackgroundSame: document.getElementById('btnBackgroundSame'),
-    btnBackgroundDifferent: document.getElementById('btnBackgroundDifferent')
+    btnBackgroundDifferent: document.getElementById('btnBackgroundDifferent'),
+    btnBackgroundFolder: document.getElementById('btnBackgroundFolder'),
+    folderOptionsPanel: document.getElementById('folderOptionsPanel'),
+    folderImportMode: document.getElementById('folderImportMode'),
+    folderImageCount: document.getElementById('folderImageCount'),
+    folderSortCriteria: document.getElementById('folderSortCriteria'),
+    btnFolderConfirm: document.getElementById('btnFolderConfirm'),
+    bulkBackgroundFolderInput: document.getElementById('bulkBackgroundFolderInput')
 };
 
 // ===================================
@@ -538,7 +545,24 @@ async function init() {
     }
     if (elements.bulkBackgroundModal) {
         const overlay = elements.bulkBackgroundModal.querySelector('.modal-overlay');
-        if (overlay) overlay.addEventListener('click', () => elements.bulkBackgroundModal.classList.add('hidden'));
+        if (overlay) overlay.addEventListener('click', () => {
+            elements.bulkBackgroundModal.classList.add('hidden');
+            if (elements.folderOptionsPanel) elements.folderOptionsPanel.classList.add('hidden');
+        });
+    }
+    // Folder import option
+    if (elements.btnBackgroundFolder) {
+        elements.btnBackgroundFolder.addEventListener('click', () => {
+            elements.folderOptionsPanel.classList.toggle('hidden');
+        });
+    }
+    if (elements.btnFolderConfirm) {
+        elements.btnFolderConfirm.addEventListener('click', () => {
+            state.backgroundImportMode = elements.folderImportMode.value;
+            state.folderImageCount = parseInt(elements.folderImageCount.value) || 10;
+            state.folderSortCriteria = elements.folderSortCriteria.value;
+            bulkImportBackgroundsFromFolder();
+        });
     }
 
     // Auth & User Initialization
@@ -2555,13 +2579,13 @@ O tom de voz deve ser: ${tone}.
 
     REGRAS GERAIS:
     0. REGRA ABSOLUTA: TODO e qualquer numeral na narrativa DEVE ser escrito por extenso (ex: "1" → "um", "10" → "dez", "100" → "cem", "2024" → "dois mil e vinte e quatro"). NUNCA use algarismos.
-    1. A introdução DEVE ser dividida em DUAS partes: "intro_part1" (saudação calorosa em ${language}, mencionando o canal "${channelName}") e "intro_part2" (explicação breve do quiz: ${quiz.questions.length} questões, ${elements.numAlternativesSelect.value} alternativas por questão e o tema "${quiz.title}").
-    3. Estimule o engajamento em ${language}: peça para anotarem os acertos, deixarem nos comentários de onde estão falando e se inscreverem no canal.
-    4. REGRA CRÍTICA DE SEPARAÇÃO: O campo "statementNarrative" deve conter APENAS o enunciado da pergunta (e opcionalmente o número no estilo escolhido). O campo "alternativesNarrative" deve conter APENAS as alternativas. NUNCA misture alternativas dentro do statementNarrative. São blocos separados no roteiro.
-    5. NÃO use frases de transição genéricas como "Próxima questão" (use o estilo de número escolhido).
-    6. Antes da ÚLTIMA questão, crie um CTA (Call to Action) simpático e envolvente em ${language} pedindo para curtir e se inscrever.
-    7. Após a ÚLTIMA questão, crie um texto de finalização (outro) em ${language} com um convite para compartilhar o vídeo e uma despedida como "Até o próximo vídeo" (traduza para ${language}).
-    8. Retorne os dados em formato JSON seguindo esta estrutura:
+    1. A introdução DEVE ser dividida em DUAS partes: "intro_part1" (saudação calorosa em ${language}, mencionando o canal "${channelName}") e "intro_part2" (explicação breve do quiz: ${quiz.questions.length} questões, ${elements.numAlternativesSelect.value} alternativas por questão e o tema "${quiz.title}"), além de estimular o engajamento em ${language}: peça para anotarem os acertos, deixarem nos comentários de onde estão falando e se inscreverem no canal.
+    3. 
+    2. REGRA CRÍTICA DE SEPARAÇÃO: O campo "statementNarrative" deve conter APENAS o enunciado da pergunta (e opcionalmente o número no estilo escolhido). O campo "alternativesNarrative" deve conter APENAS as alternativas. NUNCA misture alternativas dentro do statementNarrative. São blocos separados no roteiro.
+    3. NÃO use frases de transição genéricas como "Próxima questão" (use o estilo de número escolhido).
+    4. Antes da ÚLTIMA questão, crie um CTA (Call to Action) simpático e envolvente em ${language} pedindo para curtir e se inscrever.
+    5. Após a ÚLTIMA questão, crie um texto de finalização (outro) em ${language} com um convite para compartilhar o vídeo e uma despedida como "Até o próximo vídeo" (traduza para ${language}).
+    6. Retorne os dados em formato JSON seguindo esta estrutura:
     {
         "intro_part1": "Primeira parte da introdução (saudação e boas-vindas ao canal)",
         "intro_part2": "Segunda parte da introdução (explicação do quiz, tema e regras)",
@@ -3467,6 +3491,126 @@ async function bulkImportBackgrounds(event) {
     } catch (error) {
         console.error('Error importing backgrounds:', error);
         showStatus(`❌ Erro ao importar backgrounds: ${error.message}`, 'error');
+    }
+}
+
+// Bulk Import Backgrounds from Folder (using File System Access API)
+async function bulkImportBackgroundsFromFolder() {
+    if (!state.generatedQuiz || !state.generatedQuiz.questions) {
+        showStatus('❌ Gere um quiz primeiro antes de importar backgrounds', 'error');
+        return;
+    }
+
+    try {
+        // Use File System Access API — no "upload all files" warning
+        const dirHandle = await window.showDirectoryPicker();
+
+        showStatus('⏳ Lendo imagens da pasta...', 'info');
+
+        // Collect only image file metadata (lightweight — no pixel data loaded yet)
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.svg'];
+        let fileEntries = [];
+
+        for await (const entry of dirHandle.values()) {
+            if (entry.kind === 'file') {
+                const name = entry.name.toLowerCase();
+                if (imageExtensions.some(ext => name.endsWith(ext))) {
+                    const file = await entry.getFile();
+                    fileEntries.push(file);
+                }
+            }
+        }
+
+        if (!fileEntries.length) {
+            showStatus('❌ Nenhuma imagem encontrada na pasta selecionada', 'error');
+            return;
+        }
+
+        const sortCriteria = state.folderSortCriteria || 'random';
+        const maxImages = state.folderImageCount || 10;
+
+        // Sort based on criteria
+        switch (sortCriteria) {
+            case 'name-asc':
+                fileEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+                break;
+            case 'name-desc':
+                fileEntries.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
+                break;
+            case 'date-asc':
+                fileEntries.sort((a, b) => a.lastModified - b.lastModified);
+                break;
+            case 'date-desc':
+                fileEntries.sort((a, b) => b.lastModified - a.lastModified);
+                break;
+            case 'size-asc':
+                fileEntries.sort((a, b) => a.size - b.size);
+                break;
+            case 'size-desc':
+                fileEntries.sort((a, b) => b.size - a.size);
+                break;
+            case 'random':
+            default:
+                for (let i = fileEntries.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [fileEntries[i], fileEntries[j]] = [fileEntries[j], fileEntries[i]];
+                }
+                break;
+        }
+
+        // Limit BEFORE reading pixel data
+        fileEntries = fileEntries.slice(0, maxImages);
+
+        showStatus(`⏳ Carregando ${fileEntries.length} imagens de "${dirHandle.name}"...`, 'info');
+
+        // Only now read the actual data for the selected files
+        const imagePromises = fileEntries.map(file => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        });
+
+        const imageDataUrls = await Promise.all(imagePromises);
+        let appliedCount = 0;
+
+        if (state.backgroundImportMode === 'different') {
+            let imgIdx = 0;
+            state.generatedQuiz.questions.forEach((question) => {
+                if (imgIdx < imageDataUrls.length) {
+                    question.backgroundImage = imageDataUrls[imgIdx++];
+                    appliedCount++;
+                }
+                if (imgIdx < imageDataUrls.length) {
+                    question.answerBackgroundImage = imageDataUrls[imgIdx++];
+                    appliedCount++;
+                }
+            });
+        } else {
+            state.generatedQuiz.questions.forEach((question, index) => {
+                const bgIndex = index % imageDataUrls.length;
+                question.backgroundImage = imageDataUrls[bgIndex];
+                question.answerBackgroundImage = null;
+            });
+            appliedCount = imageDataUrls.length;
+        }
+
+        // Refresh the quiz display
+        displayQuiz(state.generatedQuiz, state.currentConfig);
+
+        // Close modal and panel
+        elements.bulkBackgroundModal.classList.add('hidden');
+        elements.folderOptionsPanel.classList.add('hidden');
+
+        const sortLabel = { 'random': 'aleatório', 'name-asc': 'nome A→Z', 'name-desc': 'nome Z→A', 'date-asc': 'data ↑', 'date-desc': 'data ↓', 'size-asc': 'tamanho ↑', 'size-desc': 'tamanho ↓' }[sortCriteria] || sortCriteria;
+        showStatus(`✅ ${fileEntries.length} imagens de "${dirHandle.name}" (${sortLabel}, ${state.backgroundImportMode === 'same' ? 'mesmo fundo' : 'fundos diferentes'})!`, 'success');
+
+    } catch (error) {
+        if (error.name === 'AbortError') return; // User cancelled the picker
+        console.error('Error importing backgrounds from folder:', error);
+        showStatus(`❌ Erro ao importar backgrounds da pasta: ${error.message}`, 'error');
     }
 }
 

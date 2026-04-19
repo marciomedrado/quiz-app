@@ -972,6 +972,7 @@
                         🎨 Importar Backgrounds em Lote
                     </button>
                     <input type="file" id="bulkBackgroundInput" accept="image/*" multiple style="display: none;">
+                    <input type="file" id="bulkBackgroundFolderInput" accept="image/*" webkitdirectory style="display: none;">
                 </div>
 
                 <div class="btn-group mb-lg">
@@ -1229,7 +1230,7 @@
     <!-- Background Import Options Modal -->
     <div id="bulkBackgroundModal" class="modal hidden">
         <div class="modal-overlay"></div>
-        <div class="modal-content glass-card" style="max-width: 450px;">
+        <div class="modal-content glass-card" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>🖼️ Importar Backgrounds em Lote</h2>
                 <button id="closeBulkBackgroundModal" class="btn-close">✕</button>
@@ -1247,6 +1248,44 @@
                         style="text-align: left; padding: 15px; border-color: var(--color-accent);">
                         <strong>🎨 Backgrounds diferentes</strong><br>
                         <small style="opacity: 0.8;">Aplica imagens alternadas por ordem de nome</small>
+                    </button>
+
+                    <hr style="border-color: rgba(255,255,255,0.1); margin: 4px 0;">
+
+                    <button id="btnBackgroundFolder" class="btn btn-secondary"
+                        style="text-align: left; padding: 15px; border-color: var(--color-warning);">
+                        <strong>📂 Selecionar Pasta</strong><br>
+                        <small style="opacity: 0.8;">Escolha uma pasta, quantidade e critério de ordenação</small>
+                    </button>
+                </div>
+
+                <!-- Folder Options Panel (hidden by default) -->
+                <div id="folderOptionsPanel" class="hidden" style="margin-top: 16px; padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label class="form-label" style="font-size: 0.9rem;">Modo de aplicação</label>
+                        <select id="folderImportMode" class="form-select">
+                            <option value="same">Mesmo background (Enunciado = Resposta)</option>
+                            <option value="different">Backgrounds diferentes (alternados)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label class="form-label" style="font-size: 0.9rem;">Quantas imagens puxar</label>
+                        <input type="number" id="folderImageCount" class="form-input" min="1" value="10" style="width: 100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label" style="font-size: 0.9rem;">Critério de ordenação</label>
+                        <select id="folderSortCriteria" class="form-select">
+                            <option value="random">🎲 Aleatório</option>
+                            <option value="name-asc">🔤 Nome (A → Z)</option>
+                            <option value="name-desc">🔤 Nome (Z → A)</option>
+                            <option value="date-asc">📅 Data de criação (mais antigo primeiro)</option>
+                            <option value="date-desc">📅 Data de criação (mais recente primeiro)</option>
+                            <option value="size-asc">📏 Tamanho (menor primeiro)</option>
+                            <option value="size-desc">📏 Tamanho (maior primeiro)</option>
+                        </select>
+                    </div>
+                    <button id="btnFolderConfirm" class="btn btn-primary" style="width: 100%;">
+                        📂 Escolher Pasta
                     </button>
                 </div>
             </div>
