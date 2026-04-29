@@ -1703,7 +1703,7 @@ const i18n = {
     'Español': {
         question: 'Pregunta',
         pergunta: 'Cuestión',
-        csv: ['Número', 'Enunciado', 'Prompt Imagen Enunciado', 'Alternativas', 'Respuesta Correcta', 'Prompt Imagen Respuesta', 'Justificación', 'Narrativa']
+        csv: ['Número', 'Enunciado', 'Prompt Imagen Enunciado', 'Alternativas', 'Respuesta Correta', 'Prompt Imagen Respuesta', 'Justificación', 'Narrativa']
     },
     'Français': {
         question: 'Question',
@@ -1729,6 +1729,46 @@ const i18n = {
         question: '问题',
         pergunta: '题目',
         csv: ['编号', '题干', '题目图片提示词', '选项', '正确答案', '回答图片提示词', '解析', '解说词']
+    },
+    'Polonês': {
+        question: 'Pytanie',
+        pergunta: 'Zadanie',
+        csv: ['Numer', 'Oświadczenie', 'Prompt obrazu pytania', 'Alternatywy', 'Poprawna odpowiedź', 'Prompt obrazu odpowiedzi', 'Uzasadnienie', 'Narracja']
+    },
+    'Sueco': {
+        question: 'Fråga',
+        pergunta: 'Problem',
+        csv: ['Nummer', 'Uttalande', 'Fråga bild prompt', 'Alternativ', 'Rätt svar', 'Svar bild prompt', 'Motivering', 'Berättelse']
+    },
+    'Norueguês': {
+        question: 'Spørsmål',
+        pergunta: 'Problem',
+        csv: ['Nummer', 'Uttalelse', 'Spørsmål bilde prompt', 'Alternativer', 'Riktig svar', 'Svar bilde prompt', 'Begrunnelse', 'Fortelling']
+    },
+    'Húngaro': {
+        question: 'Kérdés',
+        pergunta: 'Probléma',
+        csv: ['Szám', 'Kijelentés', 'Kérdés kép prompt', 'Alternatívák', 'Helyes válasz', 'Válasz kép prompt', 'Indoklás', 'Narratíva']
+    },
+    'Romeno': {
+        question: 'Întrebare',
+        pergunta: 'Problemă',
+        csv: ['Număr', 'Afirmație', 'Prompt imagine întrebare', 'Alternative', 'Răspuns corect', 'Prompt imagine răspuns', 'Justificare', 'Narațiune']
+    },
+    'Grego': {
+        question: 'Ερώτηση',
+        pergunta: 'Πρόβλημα',
+        csv: ['Αριθμός', 'Δήλωση', 'Prompt εικόνας ερώτησης', 'Εναλλακτικές', 'Σωστή απάντηση', 'Prompt εικόνας απάντησης', 'Αιτιολόγηση', 'Αφήγηση']
+    },
+    'Turco': {
+        question: 'Soru',
+        pergunta: 'Sorun',
+        csv: ['Numara', 'İfade', 'Soru görüntü istemi', 'Alternatifler', 'Doğru cevap', 'Cevap görüntü istemi', 'Gerekçe', 'Anlatım']
+    },
+    'Árabe': {
+        question: 'سؤال',
+        pergunta: 'مسألة',
+        csv: ['رقم', 'بيان', 'موجه صورة السؤال', 'بدائل', 'إجابة صحيحة', 'موجه صورة الإجابة', 'تبرير', 'سرد']
     }
 };
 
@@ -4728,7 +4768,8 @@ async function exportIsolatedQuestion(index) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showStatus(`✅ Questão ${index + 1} exportada!`, 'success');
+        const lang = state.currentConfig?.language || 'Português';
+        showStatus(`✅ ${formatQuestionNumber(index + 1, 'question', lang)} exportada!`, 'success');
     } catch (error) {
         console.error('Error exporting isolated question:', error);
         showStatus('❌ Erro ao exportar questão', 'error');
@@ -5367,7 +5408,8 @@ async function regenerateQuestion(index, customPrompt) {
 
         // Re-render
         displayQuiz(state.generatedQuiz, state.currentConfig);
-        showStatus(`✅ Questão ${qNum} regenerada com sucesso!`, 'success');
+        const lang = state.currentConfig?.language || 'Português';
+        showStatus(`✅ ${formatQuestionNumber(qNum, 'question', lang)} regenerada com sucesso!`, 'success');
 
     } catch (error) {
         console.error('Erro na regeneração:', error);
@@ -5480,8 +5522,10 @@ window.openReorderModal = function (index) {
         const q = state.generatedQuiz.questions[index];
         const preview = q.statement.length > 60 ? q.statement.slice(0, 60) + '…' : q.statement;
         const modalBody = elements.reorderModal.querySelector('.modal-body p');
+        const lang = state.currentConfig?.language || 'Português';
+        const transNum = formatQuestionNumber(currentPos, 'question', lang);
         if (modalBody) {
-            modalBody.innerHTML = `Movendo <strong>Questão ${currentPos}</strong>: <em style="opacity:0.7;">"${preview}"</em><br><small style="opacity:0.5;">(Total: ${total} questões)</small>`;
+            modalBody.innerHTML = `Movendo <strong>${transNum}</strong>: <em style="opacity:0.7;">"${preview}"</em><br><small style="opacity:0.5;">(Total: ${total} questões)</small>`;
         }
     }
 };
@@ -5521,7 +5565,9 @@ function applyReorder(fromIndex, targetPos, swapOnly) {
         // Shift mode: remove from origin, insert at destination
         const [moved] = questions.splice(fromIndex, 1);
         questions.splice(toIndex, 0, moved);
-        showStatus(`✅ Questão movida para a posição ${targetPos}. As demais foram reorganizadas.`, 'success');
+        const lang = state.currentConfig?.language || 'Português';
+        const transNum = formatQuestionNumber(targetPos, 'question', lang);
+        showStatus(`✅ ${transNum} movida para a posição ${targetPos}. As demais foram reorganizadas.`, 'success');
     }
 
     // Renumber all questions to reflect new order
@@ -5711,9 +5757,10 @@ function renderImagePromptsEditor() {
         const card = document.createElement('div');
         card.style.cssText = 'background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;';
 
+        const lang = state.currentConfig?.language || 'Português';
         card.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h3 style="font-size: 1.1rem; color: var(--color-primary-light);">Questão ${item.number}</h3>
+                <h3 style="font-size: 1.1rem; color: var(--color-primary-light);">${formatQuestionNumber(item.number, 'question', lang)}</h3>
             </div>
             
             <p style="font-size: 0.85rem; margin-bottom: 5px; opacity: 0.8;"><strong>Enunciado:</strong> ${questionObj.statement}</p>
