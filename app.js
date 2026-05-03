@@ -1563,31 +1563,60 @@ async function callOpenAI(config) {
     const systemPrompt = buildSystemPrompt(config);
     const userPrompt = buildUserPrompt(config);
 
-    const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: state.model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.7,
-            response_format: { type: "json_object" }
-        })
-    });
+    const callApi = async (messages) => {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: state.model,
+                messages: messages,
+                temperature: 0.7,
+                response_format: { type: "json_object" }
+            })
+        });
 
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro na API OpenAI');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Erro na API OpenAI');
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    };
+
+    // 1. Initial Generation
+    if (typeof showStatus === 'function') {
+        showStatus('🤖 Gerando primeira versão do quiz...', 'info');
+    }
+    let messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+    ];
+    const initialContent = await callApi(messages);
+
+    // 2. First Review
+    if (typeof showStatus === 'function') {
+        showStatus('🔍 Realizando 1ª revisão interna do conteúdo...', 'info');
+    }
+    messages.push({ role: 'assistant', content: initialContent });
+    messages.push({ role: 'user', content: "REVISÃO 1: Como um revisor crítico autônomo, analise o JSON gerado acima. Verifique estritamente se TODAS as questões são ÚNICAS (sem repetição de tema ou conteúdo entre elas) e se o conteúdo é coerente e faz sentido. Reescreva as questões que forem repetitivas ou incoerentes para garantir que todas sejam diferentes e coerentes. Retorne o quiz completo corrigido e revisado EXATAMENTE no mesmo formato JSON solicitado." });
+    const review1Content = await callApi(messages);
+
+    // 3. Second Review
+    if (typeof showStatus === 'function') {
+        showStatus('🔍 Realizando 2ª revisão interna do conteúdo...', 'info');
+    }
+    messages.push({ role: 'assistant', content: review1Content });
+    messages.push({ role: 'user', content: "REVISÃO 2 (FINAL): Faça uma segunda e rigorosa análise do JSON gerado. Certifique-se absolutamente de que não há nenhuma redundância ou repetição entre as questões. Assegure a máxima qualidade, variedade e coerência do quiz. Retorne o quiz completo, finalizado e revisado EXATAMENTE no mesmo formato JSON solicitado." });
+    const review2Content = await callApi(messages);
+
+    if (typeof showStatus === 'function') {
+        showStatus('✅ Revisões concluídas! Finalizando quiz...', 'success');
     }
 
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-
-    return JSON.parse(content);
+    return JSON.parse(review2Content);
 }
 
 function buildSystemPrompt(config) {
