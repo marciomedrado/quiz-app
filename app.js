@@ -281,6 +281,8 @@ const elements = {
     quizPresetNameInput: document.getElementById('quizPresetName'),
     saveQuizPresetBtn: document.getElementById('saveQuizPresetBtn'),
     quizPresetSelect: document.getElementById('quizPresetSelect'),
+    updateQuizPresetBtn: document.getElementById('updateQuizPresetBtn'),
+    deleteQuizPresetBtn: document.getElementById('deleteQuizPresetBtn'),
 
     // Brainstorm Elements
     brainstormModal: document.getElementById('brainstormModal'),
@@ -476,9 +478,27 @@ async function init() {
     initBrainstormListeners();
 
     // Quiz Config Preset events
-    if (elements.saveQuizPresetBtn) elements.saveQuizPresetBtn.addEventListener('click', saveQuizPreset);
+    if (elements.saveQuizPresetBtn) {
+        elements.saveQuizPresetBtn.addEventListener('click', saveQuizPreset);
+    }
+    if (elements.updateQuizPresetBtn) {
+        elements.updateQuizPresetBtn.addEventListener('click', updateQuizConfigPreset);
+    }
+    if (elements.deleteQuizPresetBtn) {
+        elements.deleteQuizPresetBtn.addEventListener('click', deleteQuizConfigPreset);
+    }
     if (elements.quizPresetSelect) {
-        elements.quizPresetSelect.addEventListener('change', (e) => applyQuizPreset(e.target.value));
+        elements.quizPresetSelect.addEventListener('change', (e) => {
+            applyQuizPreset(e.target.value);
+            // Toggle visibility of action buttons based on selection
+            if (e.target.value === '') {
+                if (elements.updateQuizPresetBtn) elements.updateQuizPresetBtn.style.display = 'none';
+                if (elements.deleteQuizPresetBtn) elements.deleteQuizPresetBtn.style.display = 'none';
+            } else {
+                if (elements.updateQuizPresetBtn) elements.updateQuizPresetBtn.style.display = 'block';
+                if (elements.deleteQuizPresetBtn) elements.deleteQuizPresetBtn.style.display = 'block';
+            }
+        });
     }
 
     // Channel Name Auto-save
@@ -1087,7 +1107,7 @@ async function loadPresets() {
     if (!list) return;
 
     try {
-        const response = await fetch('/api/presets');
+        const response = await fetch(`/api/presets?t=${Date.now()}`);
 
         if (response.status === 401) {
             list.innerHTML = '<div style="text-align: center; font-size: 0.75rem; color: var(--text-tertiary); padding: 5px;">Faça login para ver seus presets</div>';
@@ -1115,7 +1135,8 @@ async function loadPresets() {
                 <div class="preset-info" onclick="applyPreset(${index})">
                     <span class="preset-name">${preset.name}</span>
                 </div>
-                <div class="preset-actions">
+                <div class="preset-actions" style="display: flex; gap: 5px;">
+                    <button class="btn-preset-update" onclick="updateStylePreset(event, ${index})" title="Atualizar preset com os valores atuais">🔄</button>
                     <button class="btn-preset-delete" onclick="deletePreset(event, ${index})" title="Excluir preset">✕</button>
                 </div>
             `;
@@ -1162,16 +1183,44 @@ window.deletePreset = async function (event, index) {
     }
 };
 
+window.updateStylePreset = async function (event, index) {
+    event.stopPropagation();
+    const preset = state.loadedPresets ? state.loadedPresets[index] : null;
+    if (!preset) return;
+
+    if (confirm(`Deseja atualizar o preset "${preset.name}" com as configurações de estilo atuais da tela?`)) {
+        const currentStyle = getCurrentStyle();
+        try {
+            const response = await fetch(`/api/presets/${preset.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: preset.name, style: currentStyle })
+            });
+
+            if (response.ok) {
+                await loadPresets();
+                showStatus(`✅ Preset "${preset.name}" atualizado!`, 'success');
+            } else {
+                const err = await response.json();
+                showStatus(`❌ Erro ao atualizar: ${err.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error updating preset:', error);
+            showStatus('❌ Erro de conexão ao atualizar preset', 'error');
+        }
+    }
+};
+
 // ===================================
 // QUIZ CONFIG PRESETS
 // ===================================
 
-async function loadConfigPresets() {
+async function loadConfigPresets(preserveIndex = null) {
     const select = elements.quizPresetSelect;
     if (!select) return;
 
     try {
-        const response = await fetch('/api/presets/config/all');
+        const response = await fetch(`/api/presets/config/all?t=${Date.now()}`);
         if (!response.ok) throw new Error('Falha ao carregar presets de config');
 
         const presets = await response.json();
@@ -1184,16 +1233,22 @@ async function loadConfigPresets() {
             opt.textContent = preset.name;
             select.appendChild(opt);
         });
+
+        if (preserveIndex !== null && presets[preserveIndex]) {
+            select.value = preserveIndex;
+            if (elements.updateQuizPresetBtn) elements.updateQuizPresetBtn.style.display = 'block';
+            if (elements.deleteQuizPresetBtn) elements.deleteQuizPresetBtn.style.display = 'block';
+        } else {
+            if (elements.updateQuizPresetBtn) elements.updateQuizPresetBtn.style.display = 'none';
+            if (elements.deleteQuizPresetBtn) elements.deleteQuizPresetBtn.style.display = 'none';
+        }
     } catch (err) {
         console.error('Error loading config presets', err);
     }
 }
 
-async function saveQuizPreset() {
-    const name = elements.quizPresetNameInput.value.trim();
-    if (!name) { showStatus('Insira um nome para o preset', 'error'); return; }
-
-    const config = {
+function getQuizConfigFromForm() {
+    return {
         language: elements.languageSelect.value,
         customLanguage: elements.customLanguageInput.value,
         theme: elements.themeInput.value,
@@ -1203,6 +1258,7 @@ async function saveQuizPreset() {
         justificationLevel: elements.justificationLevelSelect.value,
         customJustification: elements.customJustificationInput.value,
         overrideJustification: elements.overrideJustificationCheckbox.checked,
+        updateOnlyJustifications: elements.updateOnlyJustificationsCheckbox ? elements.updateOnlyJustificationsCheckbox.checked : false,
         channelName: elements.channelNameInput.value,
         narratorTone: elements.narratorToneSelect.value,
         customTone: elements.customToneInput.value,
@@ -1212,6 +1268,14 @@ async function saveQuizPreset() {
         narrativeJustificationFormat: elements.narrativeJustificationFormatSelect.value,
         details: elements.detailsTextarea.value
     };
+}
+
+async function saveQuizPreset() {
+    const nameInput = elements.quizPresetNameInput;
+    const name = nameInput.value.trim();
+    if (!name) { showStatus('Insira um nome para o preset', 'error'); return; }
+
+    const config = getQuizConfigFromForm();
 
     try {
         const response = await fetch('/api/presets/config', {
@@ -1220,7 +1284,7 @@ async function saveQuizPreset() {
             body: JSON.stringify({ name, config })
         });
         if (response.ok) {
-            elements.quizPresetNameInput.value = '';
+            nameInput.value = '';
             await loadConfigPresets();
             showStatus(`✅ Preset "${name}" salvo!`, 'success');
         } else {
@@ -1228,6 +1292,60 @@ async function saveQuizPreset() {
         }
     } catch (e) {
         showStatus('❌ Erro de conexão', 'error');
+    }
+}
+
+async function updateQuizConfigPreset() {
+    const index = elements.quizPresetSelect.value;
+    if (index === '') return;
+
+    const preset = state.loadedConfigPresets[index];
+    if (!preset) return;
+
+    const name = elements.quizPresetNameInput.value.trim() || preset.name;
+    const config = getQuizConfigFromForm();
+
+    if (confirm(`Deseja atualizar o preset "${preset.name}" com os valores atuais da tela?`)) {
+        try {
+            const response = await fetch(`/api/presets/config/${preset.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, config })
+            });
+            if (response.ok) {
+                await loadConfigPresets(index);
+                showStatus(`✅ Preset "${name}" atualizado!`, 'success');
+            } else {
+                showStatus('❌ Erro ao atualizar preset', 'error');
+            }
+        } catch (e) {
+            showStatus('❌ Erro de conexão', 'error');
+        }
+    }
+}
+
+async function deleteQuizConfigPreset() {
+    const index = elements.quizPresetSelect.value;
+    if (index === '') return;
+
+    const preset = state.loadedConfigPresets[index];
+    if (!preset) return;
+
+    if (confirm(`Deseja excluir permanentemente o preset "${preset.name}"?`)) {
+        try {
+            const response = await fetch(`/api/presets/config/${preset.id}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                elements.quizPresetNameInput.value = '';
+                await loadConfigPresets();
+                showStatus(`🗑️ Preset "${preset.name}" excluído.`, 'info');
+            } else {
+                showStatus('❌ Erro ao excluir preset', 'error');
+            }
+        } catch (e) {
+            showStatus('❌ Erro de conexão', 'error');
+        }
     }
 }
 
@@ -1246,6 +1364,7 @@ function applyQuizPreset(index) {
     if (c.justificationLevel) { elements.justificationLevelSelect.value = c.justificationLevel; elements.justificationLevelSelect.dispatchEvent(new Event('change')); }
     if (c.customJustification) elements.customJustificationInput.value = c.customJustification;
     if (c.overrideJustification !== undefined) elements.overrideJustificationCheckbox.checked = c.overrideJustification;
+    if (c.updateOnlyJustifications !== undefined && elements.updateOnlyJustificationsCheckbox) elements.updateOnlyJustificationsCheckbox.checked = c.updateOnlyJustifications;
     if (c.channelName) elements.channelNameInput.value = c.channelName;
     if (c.narratorTone) { elements.narratorToneSelect.value = c.narratorTone; elements.narratorToneSelect.dispatchEvent(new Event('change')); }
     if (c.customTone) elements.customToneInput.value = c.customTone;
@@ -1255,8 +1374,8 @@ function applyQuizPreset(index) {
     if (c.narrativeJustificationFormat) elements.narrativeJustificationFormatSelect.value = c.narrativeJustificationFormat;
     if (c.details) elements.detailsTextarea.value = c.details;
 
+    if (elements.quizPresetNameInput) elements.quizPresetNameInput.value = preset.name;
     showStatus(`✨ Preset de Configuração aplicado!`, 'success');
-    elements.quizPresetSelect.value = '';
 }
 
 // ===================================

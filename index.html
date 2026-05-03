@@ -678,10 +678,14 @@
                         <button id="saveQuizPresetBtn" class="btn btn-sm btn-secondary"
                             style="height: 32px; padding: 0 10px;">💾 Salvar</button>
                     </div>
-                    <select id="quizPresetSelect" class="form-select"
-                        style="padding: 4px 8px; height: 32px; font-size: 0.85rem; width: 100%;">
-                        <option value="">Carregar Preset...</option>
-                    </select>
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                        <select id="quizPresetSelect" class="form-select"
+                            style="padding: 4px 8px; height: 32px; font-size: 0.85rem; flex-grow: 1;">
+                            <option value="">Carregar Preset...</option>
+                        </select>
+                        <button id="updateQuizPresetBtn" class="btn btn-sm btn-secondary" style="height: 32px; padding: 0 10px; display: none;" title="Atualizar Preset Atual">🔄</button>
+                        <button id="deleteQuizPresetBtn" class="btn btn-sm" style="height: 32px; padding: 0 10px; display: none; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444;" title="Excluir Preset Atual">🗑️</button>
+                    </div>
                 </div>
             </div>
 

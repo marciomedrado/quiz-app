@@ -1727,6 +1727,23 @@ p {
   padding: 2px 5px;
 }
 
+.btn-preset-update {
+  background: none;
+  border: none;
+  color: #3b82f6; /* Azul primário */
+  cursor: pointer;
+  font-size: 0.9rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  padding: 2px 5px;
+}
+
+.btn-preset-delete:hover,
+.btn-preset-update:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 /* ===================================
    BRAINSTORM CHAT
    =================================== */

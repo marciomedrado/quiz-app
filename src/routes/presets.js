@@ -126,4 +126,60 @@ router.delete('/config/:id', requireAuth, async (req, res) => {
     }
 });
 
+// Update a style preset
+router.put('/:id', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    const { name, style } = req.body;
+    try {
+        const preset = await prisma.stylePreset.findFirst({
+            where: { id, userId: req.user.id }
+        });
+        if (!preset) return res.status(404).json({ error: 'Preset não encontrado' });
+
+        const updated = await prisma.stylePreset.update({
+            where: { id },
+            data: {
+                name: name || preset.name,
+                style: style ? JSON.stringify(style) : preset.style
+            }
+        });
+        res.json({
+            id: updated.id,
+            name: updated.name,
+            style: JSON.parse(updated.style)
+        });
+    } catch (error) {
+        console.error('Error updating style preset:', error);
+        res.status(500).json({ error: 'Erro ao atualizar preset' });
+    }
+});
+
+// Update config preset
+router.put('/config/:id', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    const { name, config } = req.body;
+    try {
+        const preset = await prisma.configPreset.findFirst({
+            where: { id, userId: req.user.id }
+        });
+        if (!preset) return res.status(404).json({ error: 'Preset de configuração não encontrado' });
+
+        const updated = await prisma.configPreset.update({
+            where: { id },
+            data: {
+                name: name || preset.name,
+                config: config ? JSON.stringify(config) : preset.config
+            }
+        });
+        res.json({
+            id: updated.id,
+            name: updated.name,
+            config: JSON.parse(updated.config)
+        });
+    } catch (error) {
+        console.error('Error updating config preset:', error);
+        res.status(500).json({ error: 'Erro ao atualizar preset de configuração' });
+    }
+});
+
 module.exports = router;
