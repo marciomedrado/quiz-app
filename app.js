@@ -1,4 +1,4 @@
-// ===================================
+﻿// ===================================
 // QUIZ GENERATOR - APPLICATION LOGIC
 // ===================================
 
@@ -1769,10 +1769,10 @@ REGRAS OBRIGATÓRIAS:
    {
      "number": 1,
      "statement": "Pergunta clara e direta",
-     "questionImagePrompt": "SEARCH TERM (Question): Use the EXACT NAME or Keyword in ENGLISH (Ex: 'Brazil', 'Mickey Mouse', 'Chair'). If the character/subject repeats in the quiz, REPEAT THE SEARCH TERM exactly. Always use ENGLISH.",
+     "questionImagePrompt": "Visual prompt in ENGLISH for AI image generators (Midjourney/DALL-E). Write 1-3 descriptive sentences covering: the scene setting, historical period or geographical location matching the quiz theme, atmosphere, and art style. DO NOT reveal the correct answer. Always in ENGLISH.",
      "alternatives": ["A) ...", "B) ...", "C) ...", "D) ..."],
      "correctAnswer": "A) ...",
-     "answerImagePrompt": "SEARCH TERM (Answer): Always in ENGLISH. 1 or 2 keywords. Ex: 'Eiffel Tower', 'Lion', 'Albert Einstein'.",
+     "answerImagePrompt": "Visual prompt in ENGLISH for AI image generators (Midjourney/DALL-E). Write 1-3 descriptive sentences showing the correct answer majestically: include period-accurate details, authentic geographical/historical context, characters with appropriate attire, and an art style fitting the quiz theme. Always in ENGLISH.",
      "justification": "Explicação breve e educativa em ${language}",
      "narrative": "Texto para locução da questão, narrando enunciado, alternativas e resposta, tudo em ${language}"
    }
@@ -5599,10 +5599,10 @@ ESTRUTURA JSON OBRIGATÓRIA:
 {
   "number": ${index + 1},
   "statement": "Pergunta clara e direta",
-  "questionImagePrompt": "Termo de busca em Inglês (ex: 'Lion')",
+  "questionImagePrompt": "Visual prompt in English for AI image generators: describe the question scene (setting, historical era, atmosphere, art style) WITHOUT revealing the answer. 1-3 sentences. Always in ENGLISH.",
   "alternatives": ${altsStructure},
   "correctAnswer": "A) ...",
-  "answerImagePrompt": "Termo de busca em Inglês",
+  "answerImagePrompt": "Visual prompt in English for AI image generators: describe the answer visually with historical/geographical accuracy matching the quiz theme, period-appropriate details, and fitting art style. 1-3 sentences. Always in ENGLISH.",
   "justification": "Explicação breve em ${config.language}",
   "narrative": "Texto para locução em ${config.language}"
 }
@@ -5783,30 +5783,52 @@ async function generateImagePrompts() {
     elements.exportImagePromptsBtn.disabled = true;
 
     try {
+        const quizConfig = state.currentConfig || {};
         const quizDataForPrompts = state.generatedQuiz.questions.map((q, i) => ({
             number: q.number || (i + 1),
             statement: q.statement,
-            correctAnswer: q.correctAnswer
+            correctAnswer: q.correctAnswer,
+            justification: q.justification || ''
         }));
 
-        const systemPrompt = `Você é um engenheiro de prompts especialista em imagens geradas por IA (Midjourney, DALL-E, Meta AI, etc.).
-Sua tarefa é criar prompts em INGLÊS que são super descritivos e densos visualmente. Sempre crie a partir do contexto da questão.
-Para CADA questão, você criará 2 prompts:
-1. question_prompt: Representação visual do Enunciado
-2. answer_prompt: Representação visual da Resposta
+        const systemPrompt = `You are an expert visual prompt engineer for AI image generators (Midjourney, DALL-E, Meta AI).
 
-🚨 REGRA CRÍTICA PARA 'question_prompt' (CHECAGEM TRIPLA NECESSÁRIA): 
-Nunca, em hipótese alguma, o 'question_prompt' deve entregar ou mostrar a resposta correta da pergunta. Ele deve apenas ilustrar o contexto misterioso ou a situação, sem spoilers. Pense em como ilustrar a DÚVIDA, ou o elemento inicial.
-O 'answer_prompt' DEVE ser a revelação e focar majestosamente na resposta.
+QUIZ CONTEXT (mandatory — use this to ensure full visual and thematic coherence across ALL prompts):
+- Theme: "${quizConfig.theme || 'general knowledge'}"
+- Difficulty: "${quizConfig.difficulty || 'Medium'}"
+- Additional Details: "${quizConfig.details || 'none'}"
 
-Formato: NÃO USAR PARÂMETROS DE COMANDO (como --v 6.0 ou --ar 16:9). Apenas a descrição textual em INGLÊS.
-Responda ESTRITAMENTE em JSON seguindo este esquema:
+YOUR TASK: For EACH question, generate 2 detailed visual prompts in ENGLISH.
+
+🔑 COHERENCE PRINCIPLES (apply to every single prompt):
+1. HISTORICAL PERIOD: If the theme involves a historical era (e.g., Ancient Egypt, World War II, Renaissance, Feudal Japan), ALL prompts MUST visually reflect that era — clothing, hairstyles, architecture, technology, weapons, vehicles, artistic conventions.
+2. GEOGRAPHICAL SETTING: If the theme is geographically specific (e.g., Amazon rainforest, Medieval Europe, Ancient Greece, feudal Japan), use authentic local environments and landmarks — NOT generic stock imagery.
+3. CHARACTERS: Historical or fictional figures must appear with accurate physical traits, period-appropriate costumes, and be placed in contextually correct environments.
+4. ARTISTIC STYLE: Match the art style to the theme. Examples:
+   - Ancient civilizations → oil painting, fresco, mosaic, or papyrus illustration style
+   - Modern science/technology → photorealistic, clean studio lighting, high-tech aesthetic
+   - Nature/wildlife → documentary photography, golden hour lighting, vivid colors
+   - Fantasy/mythology → epic fantasy illustration, dramatic chiaroscuro lighting
+   - Wars/conflicts → gritty photojournalism or period military paintings
+5. ATMOSPHERE & MOOD: Lighting and mood must reinforce the theme's era and geography (e.g., torchlight for ancient settings, neon for cyberpunk, golden savanna light for African wildlife).
+
+📋 FOR EACH QUESTION:
+
+1. question_prompt: A cinematic, evocative scene that ILLUSTRATES THE CONTEXT of the question without spoiling the answer. Include: geographic/historical setting, relevant objects or symbols of the era, atmosphere, lighting, art style. (2-3 sentences in English)
+
+2. answer_prompt: A majestic, revealing visual of the correct answer. Include: the subject in full contextual detail, period-accurate surroundings, characters with appropriate appearance, celebratory or epic lighting, art style matching the quiz theme. (2-3 sentences in English)
+
+🚨 CRITICAL RULE: The question_prompt MUST NEVER reveal or hint at the correct answer. Illustrate the DOUBT, the curiosity, the unresolved situation — not the solution.
+
+❌ DO NOT include Midjourney parameters (--v, --ar, --style, --q). Descriptive text only.
+
+Respond STRICTLY in this JSON format:
 {
   "prompts": [
     {
       "number": 1,
-      "question_prompt": "Cinematic photography of a mysterious shadowy landscape...",
-      "answer_prompt": "Majestic golden pyramid reaching the sky..."
+      "question_prompt": "Detailed 2-3 sentence visual description in English, grounded in the quiz theme and era...",
+      "answer_prompt": "Detailed 2-3 sentence visual description in English, majestically revealing the correct answer with historical/geographical accuracy..."
     }
   ]
 }`;
@@ -5854,12 +5876,37 @@ window.regenerateSpecificPrompt = async function (index, type) {
     }
 
     try {
-        const sysPrompt = `Você é um engenheiro de prompts especialista em imagens geradas por IA.
-Sua tarefa é gerar UM ÚNICO prompt descrevendo visualmente a cena ${type === 'question' ? 'do ENUNCIADO, de forma misteriosa e que NUNCA revele a resposta correta.' : 'da RESPOSTA MAJESTOSA revelada.'}
-${instr ? `\nINSTRUÇÃO ADICIONAL: ${instr}` : ''}
-Use a pergunta: "${questionObj.statement}" 
-Resposta correta: "${questionObj.correctAnswer}"
-Formato: Apenas texto do prompt em inglês, sem aspas, sem markdown, sem formato JSON, e sem parâmetros numéricos (ex: não inclua --ar ou --v).`;
+        const quizConfig = state.currentConfig || {};
+        const sysPrompt = `You are an expert visual prompt engineer for AI image generators (Midjourney, DALL-E, Meta AI).
+
+QUIZ CONTEXT:
+- Theme: "${quizConfig.theme || 'general knowledge'}"
+- Additional Details: "${quizConfig.details || 'none'}"
+
+TASK: Generate ONE detailed visual prompt in English for the ${type === 'question' ? 'QUESTION scene' : 'ANSWER REVEAL scene'}.
+
+${type === 'question'
+    ? `QUESTION SCENE RULES:
+- Illustrate the question's context in a mysterious, evocative way
+- DO NOT reveal or hint at the correct answer
+- Create curiosity and tension through setting, objects, or atmosphere of the era`
+    : `ANSWER SCENE RULES:
+- Reveal the correct answer majestically and with full contextual clarity
+- Focus on the subject with accuracy, pride, and visual impact`
+}
+
+COHERENCE REQUIREMENTS (apply strictly):
+- Historical period: clothing, architecture, and technology must match the theme's era
+- Geography: use authentic, location-specific settings and landscapes
+- Characters: period-accurate physical appearance and attire
+- Art style: match the theme (oil painting for historical, photorealistic for modern, illustration for fantasy, documentary for nature)
+- Mood: lighting and atmosphere must reinforce the theme's era and geography
+
+Question: "${questionObj.statement}"
+Correct Answer: "${questionObj.correctAnswer}"
+${instr ? `Additional instruction from user: ${instr}` : ''}
+
+Output: Plain descriptive English text only (2-3 sentences). No quotes, no markdown, no Midjourney parameters (--ar, --v, etc.).`;
 
         const response = await fetch('/api/chat', {
             method: 'POST',
